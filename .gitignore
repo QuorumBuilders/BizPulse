@@ -22,3 +22,44 @@ lerna-debug.log*
 # temp directory
 .temp
 .tmp
+# python 
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Django
+db.sqlite3
+db.sqlite3-journal
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Django static/media files
+staticfiles/
+media/
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Type checking / linting
+.mypy_cache/
+.ruff_cache/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
