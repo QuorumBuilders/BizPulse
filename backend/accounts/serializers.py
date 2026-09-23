@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Customer, Business
+from .models import Business
 
 
 class BusinessSerializer(serializers.ModelSerializer):
@@ -50,29 +50,3 @@ class BusinessSerializer(serializers.ModelSerializer):
 
         return super().update(instance, validated_data)
 
-
-
-class CustomerSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Customer
-        fields = [
-            "id",
-            "name",
-            "phone",
-        ]
-        read_only_fields = [
-            "id",
-        ]
-
-    def validate_name(self, value):
-        value = value.strip()
-
-        if not value:
-            raise serializers.ValidationError(
-                "Customer name cannot be empty."
-            )
-
-        return value
-
-    def validate_phone(self, value):
-        return value.strip()

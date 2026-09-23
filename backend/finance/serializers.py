@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import DailyTally, CreditRecord, Repayment
+from .models import DailyTally, CreditRecord, Repayment, Customer
 
 
 class DailyTallySerializer(serializers.ModelSerializer):
@@ -50,7 +50,6 @@ class CreditRecordSerializer(serializers.ModelSerializer):
 
         return attrs
 
-
 class RepaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Repayment
@@ -62,11 +61,17 @@ class RepaymentSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
+            "credit_record",
         ]
 
     def validate(self, attrs):
-        credit_record = attrs["credit_record"]
-        amount = attrs["amount"]
+        credit_record = self.context.get("credit_record")
+
+        if credit_record is None:
+            raise serializers.ValidationError(
+                "Credit record context is required."
+            )
+
         paid_date = attrs["paid_date"]
 
         if paid_date < credit_record.issued_date:
@@ -82,11 +87,15 @@ class RepaymentSerializer(serializers.ModelSerializer):
         total_repaid = sum(
             repayment.amount
             for repayment in credit_record.repayments.all()
+            if (
+                self.instance is None
+                or repayment.pk != self.instance.pk
+            )
         )
 
         outstanding = credit_record.amount - total_repaid
 
-        if amount > outstanding:
+        if attrs["amount"] > outstanding:
             raise serializers.ValidationError(
                 {
                     "amount": (
@@ -97,3 +106,28 @@ class RepaymentSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
+class CustomerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customer
+        fields = [
+            "id",
+            "name",
+            "phone",
+        ]
+        read_only_fields = [
+            "id",
+        ]
+
+    def validate_name(self, value):
+        value = value.strip()
+
+        if not value:
+            raise serializers.ValidationError(
+                "Customer name cannot be empty."
+            )
+
+        return value
+
+    def validate_phone(self, value):
+        return value.strip()

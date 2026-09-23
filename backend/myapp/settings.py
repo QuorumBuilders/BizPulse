@@ -24,7 +24,7 @@ SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DJANGO_DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["bizpulse.pythonanywhere.com", "localhost", "127.0.0.1"]
 
 
 # Application definition
@@ -75,6 +75,8 @@ REST_FRAMEWORK = {
         "rest_framework.parsers.JSONParser",
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "EXCEPTION_HANDLER": "myapp.exceptions.custom_exception_handler",
+    "DEFAULT_PAGINATION_CLASS": "myapp.pagination.StandardPagination",
 }
 
 SPECTACULAR_SETTINGS = {

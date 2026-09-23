@@ -21,4 +21,12 @@ class Business(models.Model):
 
     def __str__(self):
         return self.name
+
+    @classmethod
+    def purge_expired_for_user(cls, user):
+        cls.objects.filter(
+            user=user,
+            deleted_at__isnull=False,
+            purge_at__lte=timezone.now(),
+        ).delete()
     
