@@ -76,3 +76,20 @@ class EmailVerification(models.Model):
     def __str__(self):
         return f"{self.user.email} - {self.purpose}"
     
+class PasswordResetToken(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="password_reset_tokens",
+    )
+    token = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+    )
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.user.email

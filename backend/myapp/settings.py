@@ -27,7 +27,7 @@ SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 DEBUG = os.environ.get("DJANGO_DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = ["bizpulse.pythonanywhere.com", "localhost", "127.0.0.1"]
-
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
 
 # Application definition
 
@@ -61,6 +61,7 @@ MIDDLEWARE = [
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
+    FRONTEND_URL,
 ]
 
 REST_FRAMEWORK = {
@@ -170,19 +171,17 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # EMAIL SETTINGS
-#EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"  # only for dev testing 
 
 
-"""
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 
-EMAIL_HOST = "smtp-relay.brevo.com"
-EMAIL_PORT =  587
-EMAIL_USE_TLS = True
-EMAIL_USE_SSL = False
+#EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT =  465
+EMAIL_USE_TLS = False
+EMAIL_USE_SSL = True
 
 EMAIL_HOST_USER = os.environ["EMAIL_HOST_USER"]
 EMAIL_HOST_PASSWORD = os.environ["EMAIL_HOST_PASSWORD"]
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-"""

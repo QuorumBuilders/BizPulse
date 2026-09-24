@@ -105,6 +105,23 @@ class VerifyEmailSerializer(serializers.Serializer):
     token = serializers.UUIDField()
 
 
+class ResendVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        return value.strip().lower()
+
+class ChangeEmailSerializer(serializers.Serializer):
+    current_password = serializers.CharField(
+        write_only=True,
+        style={"input_type": "password"},
+    )
+    new_email = serializers.EmailField()
+
+    def validate_new_email(self, value):
+        return value.strip().lower()
+
+
 
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
     username_field = User.EMAIL_FIELD
@@ -141,3 +158,65 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class LogoutSerializer(TokenBlacklistSerializer):
     pass
+
+class PasswordChangeSerializer(serializers.Serializer):
+    current_password = serializers.CharField(
+        write_only=True,
+        style={"input_type": "password"},
+    )
+    new_password = serializers.CharField(
+        write_only=True,
+        style={"input_type": "password"},
+    )
+    password_confirmation = serializers.CharField(
+        write_only=True,
+        style={"input_type": "password"},
+    )
+
+    def validate(self, attrs):
+        if attrs["new_password"] != attrs["password_confirmation"]:
+            raise serializers.ValidationError(
+                {
+                    "password_confirmation": "Passwords do not match."
+                }
+            )
+
+        if attrs["current_password"] == attrs["new_password"]:
+            raise serializers.ValidationError(
+                {
+                    "new_password": (
+                        "New password must be different from the current password."
+                    )
+                }
+            )
+
+        return attrs
+    
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        return value.strip().lower()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    token = serializers.UUIDField()
+    new_password = serializers.CharField(
+        write_only=True,
+        style={"input_type": "password"},
+    )
+    password_confirmation = serializers.CharField(
+        write_only=True,
+        style={"input_type": "password"},
+    )
+
+    def validate(self, attrs):
+        if attrs["new_password"] != attrs["password_confirmation"]:
+            raise serializers.ValidationError(
+                {
+                    "password_confirmation": "Passwords do not match."
+                }
+            )
+
+        return attrs
