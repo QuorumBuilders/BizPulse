@@ -4,10 +4,6 @@ from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularSwaggerView,
 )
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
-)
 
 
 urlpatterns = [
@@ -15,14 +11,8 @@ urlpatterns = [
 
     # Authentication
     path(
-        "api/auth/token/",
-        TokenObtainPairView.as_view(),
-        name="token-obtain",
-    ),
-    path(
-        "api/auth/token/refresh/",
-        TokenRefreshView.as_view(),
-        name="token-refresh",
+        "api/auth/",
+        include("accounts.auth_urls"),
     ),
 
     # Businesses
