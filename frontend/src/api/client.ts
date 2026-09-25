@@ -1,43 +1,26 @@
 /**
  * BizPulse — API Client
  *
- * Thin fetch wrapper around the Django DRF backend.
- * One function per endpoint, all typed against the API contract.
+ * Authenticated data-plane requests (business, tallies, repayments, etc.).
+ * Auth requests (login, register, etc.) live in src/api/authApi.ts.
+ *
+ * Automatically refreshes the access token on 401, then retries once.
+ * Auth state is managed by src/state/authStore.ts.
  *
  * IMPORTANT: If the backend isn't ready or a network request fails,
  * the UI NEVER blocks — it always reads from IndexedDB. This file is
  * only called by the sync engine (data/sync.ts), never directly from
  * UI components or hooks.
- *
- * TODO (API contract checklist — confirm with backend teammate):
- * [ ] Confirm base URL format and whether /api/ prefix is used
- * [ ] Confirm JWT goes in Authorization: Bearer header
- * [ ] Confirm client_id is accepted on create and echoed back in response
- * [ ] Confirm exact field names match domain/types.ts
- * [ ] Confirm error response shape for 4xx
- * [ ] Confirm pagination shape for list endpoints
  */
 
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
 
-// TODO: move to environment variable (.env.local) before deploy
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
-// ---------------------------------------------------------------------------
-// Auth token management
-// ---------------------------------------------------------------------------
-
-let _accessToken: string | null = null;
-
-export function setAccessToken(token: string | null): void {
-  _accessToken = token;
-}
-
-export function getAccessToken(): string | null {
-  return _accessToken;
-}
+import { getAccessToken, silentRefresh } from '../state/authStore';
+export { getAccessToken } from '../state/authStore';
 
 // ---------------------------------------------------------------------------
 // HTTP helpers
@@ -57,14 +40,16 @@ class ApiError extends Error {
 async function request<T>(
   method: string,
   path: string,
-  body?: unknown
+  body?: unknown,
+  _isRetry = false,
 ): Promise<T> {
+  const accessToken = getAccessToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
 
-  if (_accessToken) {
-    headers['Authorization'] = `Bearer ${_accessToken}`;
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
   const response = await fetch(`${BASE_URL}${path}`, {
@@ -72,6 +57,17 @@ async function request<T>(
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
+
+  // 401 — access token expired → silent refresh → retry once
+  if (response.status === 401 && !_isRetry) {
+    try {
+      await silentRefresh();
+    } catch {
+      // silentRefresh clears auth + redirects to /login on failure
+      throw new ApiError(401, 'Session expired. Please log in again.');
+    }
+    return request<T>(method, path, body, true);
+  }
 
   if (!response.ok) {
     let errorBody: unknown;
@@ -90,49 +86,39 @@ async function request<T>(
 }
 
 // ---------------------------------------------------------------------------
-// Auth endpoints
+// Auth stubs — @deprecated
+// Use src/api/authApi.ts for all new auth calls.
+// These are kept only for backwards compat with the existing sync engine.
 // ---------------------------------------------------------------------------
 
 export interface SignupPayload {
-  name: string;
-  phone_or_email: string;
+  email: string;
+  display_name: string;
   password: string;
+  password_confirmation: string;
 }
 
-export interface AuthResponse {
+export interface TokenPair {
   access: string;
   refresh: string;
-  user: {
-    id: number;
-    name: string;
-    phone_or_email: string;
-  };
 }
 
-/**
- * POST /auth/signup/
- * TODO: confirm exact path with backend teammate
- */
-export async function apiSignup(payload: SignupPayload): Promise<AuthResponse> {
-  return request<AuthResponse>('POST', '/auth/signup/', payload);
+/** @deprecated Use authApi.register() */
+export async function apiSignup(payload: SignupPayload): Promise<{ data: { message: string } }> {
+  return request<{ data: { message: string } }>('POST', '/api/auth/register/', payload);
 }
 
-/**
- * POST /auth/login/
- */
+/** @deprecated Use authApi.login() + authStore.authLogin() */
 export async function apiLogin(payload: {
-  phone_or_email: string;
+  email: string;
   password: string;
-}): Promise<AuthResponse> {
-  return request<AuthResponse>('POST', '/auth/login/', payload);
+}): Promise<TokenPair> {
+  return request<TokenPair>('POST', '/api/auth/token/', payload);
 }
 
-/**
- * POST /auth/token/refresh/
- * TODO: confirm path (djangorestframework-simplejwt default is /api/token/refresh/)
- */
-export async function apiRefreshToken(refresh: string): Promise<{ access: string }> {
-  return request<{ access: string }>('POST', '/auth/token/refresh/', { refresh });
+/** @deprecated Use authApi.refreshTokens() + authStore.silentRefresh() */
+export async function apiRefreshToken(refresh: string): Promise<TokenPair> {
+  return request<TokenPair>('POST', '/api/auth/token/refresh/', { refresh });
 }
 
 // ---------------------------------------------------------------------------

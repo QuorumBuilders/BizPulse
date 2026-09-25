@@ -1,16 +1,20 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
+import { AuthApiError, resendVerificationEmail } from '@/api/authApi';
+
+interface SignupPayload {
+  displayName: string;
+  email: string;
+  password: string;
+  passwordConfirmation: string;
+  businessName: string;
+  businessType: string;
+  startingCash: number;
+}
 
 interface Props {
-  onSignup: (payload: {
-    name: string;
-    phoneOrEmail: string;
-    password: string;
-    businessName: string;
-    businessType: string;
-    startingCash: number;
-  }) => Promise<void>;
+  onSignup: (payload: SignupPayload) => Promise<void>;
   onGoToLogin: () => void;
 }
 
@@ -31,10 +35,10 @@ export default function SignupScreen({ onSignup, onGoToLogin }: Props) {
   // Step 1: account, Step 2: business (onboarding merged in)
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
-    name: '',
-    phoneOrEmail: '',
+    displayName: '',
+    email: '',
     password: '',
-    confirmPassword: '',
+    passwordConfirmation: '',
     businessName: '',
     businessType: BUSINESS_TYPES[0],
     startingCash: '',
@@ -42,19 +46,28 @@ export default function SignupScreen({ onSignup, onGoToLogin }: Props) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState('');
+  
+  // Verification pending state after successful registration
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [resendStatus, setResendStatus] = useState<string | null>(null);
 
   const set = (field: string, value: string) => {
-    setForm((f: typeof form) => ({ ...f, [field]: value }));
-    setErrors((e: Record<string, string>) => ({ ...e, [field]: '' }));
+    setForm((f) => ({ ...f, [field]: value }));
+    setErrors((e) => ({ ...e, [field]: '' }));
     setApiError('');
   };
 
   const validateStep1 = () => {
     const e: Record<string, string> = {};
-    if (!form.name.trim()) e.name = 'Full name is required';
-    if (!form.phoneOrEmail.trim()) e.phoneOrEmail = 'Phone number or email is required';
+    if (!form.displayName.trim()) e.displayName = 'Full name is required';
+    if (!form.email.trim()) {
+      e.email = 'Email address is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      e.email = 'Please enter a valid email address';
+    }
     if (form.password.length < 8) e.password = 'Password must be at least 8 characters';
-    if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match';
+    if (form.password !== form.passwordConfirmation) e.passwordConfirmation = 'Passwords do not match';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -73,20 +86,114 @@ export default function SignupScreen({ onSignup, onGoToLogin }: Props) {
   const handleSubmit = useCallback(async () => {
     if (!validateStep2()) return;
     setIsLoading(true);
+    setApiError('');
     try {
       await onSignup({
-        name: form.name,
-        phoneOrEmail: form.phoneOrEmail,
+        displayName: form.displayName.trim(),
+        email: form.email.trim().toLowerCase(),
         password: form.password,
-        businessName: form.businessName,
+        passwordConfirmation: form.passwordConfirmation,
+        businessName: form.businessName.trim(),
         businessType: form.businessType,
         startingCash: parseFloat(form.startingCash || '0'),
       });
-    } catch (err) {
-      setApiError(err instanceof Error ? err.message : 'Something went wrong. Try again.');
+      setIsRegistered(true);
+    } catch (err: unknown) {
+      if (err instanceof AuthApiError && err.details) {
+        const fieldErrors: Record<string, string> = {};
+        for (const [key, val] of Object.entries(err.details)) {
+          const msg = Array.isArray(val) ? val.join(' ') : String(val);
+          if (key === 'email') fieldErrors.email = msg;
+          else if (key === 'display_name') fieldErrors.displayName = msg;
+          else if (key === 'password') fieldErrors.password = msg;
+          else if (key === 'password_confirmation') fieldErrors.passwordConfirmation = msg;
+          else if (key === 'non_field_errors') setApiError(msg);
+          else fieldErrors[key] = msg;
+        }
+        setErrors(fieldErrors);
+        // If there are step 1 errors, jump back to step 1
+        if (fieldErrors.email || fieldErrors.displayName || fieldErrors.password || fieldErrors.passwordConfirmation) {
+          setStep(1);
+        }
+        if (!Object.keys(fieldErrors).length && !apiError) {
+          setApiError(err.message || 'Registration failed. Please check your inputs.');
+        }
+      } else {
+        setApiError(err instanceof Error ? err.message : 'Something went wrong. Try again.');
+      }
+    } finally {
       setIsLoading(false);
     }
-  }, [form, onSignup]);
+  }, [form, onSignup, apiError]);
+
+  const handleResendVerification = async () => {
+    if (!form.email || isResending) return;
+    setIsResending(true);
+    setResendStatus(null);
+    try {
+      await resendVerificationEmail(form.email.trim().toLowerCase());
+      setResendStatus('Verification email resent! Check your inbox or spam folder.');
+    } catch (err: unknown) {
+      setResendStatus(
+        err instanceof Error ? err.message : 'Could not resend email right now. Please try again later.'
+      );
+    } finally {
+      setIsResending(false);
+    }
+  };
+
+  // If successfully registered, show verification pending screen
+  if (isRegistered) {
+    return (
+      <div className="page page--auth fade-in">
+        <div className="auth-logo">
+          <div className="auth-logo__icon">✉️</div>
+          <span className="auth-logo__name">BizPulse</span>
+        </div>
+
+        <h1 style={{ marginBottom: 8 }}>Check your email</h1>
+        <p className="text-muted text-sm" style={{ marginBottom: 24, lineHeight: 1.6 }}>
+          We sent an activation link to <strong style={{ color: 'var(--color-text-primary)' }}>{form.email}</strong>.
+          Please click the link in your email to activate your account before signing in.
+        </p>
+
+        <div className="card" style={{ marginBottom: 24, background: 'rgba(16,185,129,0.06)', borderColor: 'rgba(16,185,129,0.3)' }}>
+          <p className="text-sm font-medium" style={{ color: 'var(--color-emerald)', marginBottom: 4 }}>
+            ✓ Account registered successfully
+          </p>
+          <p className="text-xs text-muted">
+            Your business details and offline tallies are safely saved on this device.
+          </p>
+        </div>
+
+        {resendStatus && (
+          <div className="card" style={{ marginBottom: 20, background: 'rgba(255,255,255,0.04)' }}>
+            <p className="text-xs text-muted">{resendStatus}</p>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3">
+          <button
+            id="go-to-login-after-signup-btn"
+            type="button"
+            className="btn btn--primary"
+            onClick={onGoToLogin}
+          >
+            Go to Sign in →
+          </button>
+          <button
+            id="resend-verification-btn"
+            type="button"
+            className="btn btn--secondary"
+            onClick={handleResendVerification}
+            disabled={isResending}
+          >
+            {isResending ? 'Resending email…' : 'Didn’t receive it? Resend link'}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page page--auth fade-in">
@@ -130,26 +237,26 @@ export default function SignupScreen({ onSignup, onGoToLogin }: Props) {
               className="form-input"
               type="text"
               placeholder="e.g. Adaeze Okafor"
-              value={form.name}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('name', e.target.value)}
+              value={form.displayName}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('displayName', e.target.value)}
               autoComplete="name"
             />
-            {errors.name && <p className="form-error">{errors.name}</p>}
+            {errors.displayName && <p className="form-error">{errors.displayName}</p>}
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="signup-identifier">Phone number or email</label>
+            <label className="form-label" htmlFor="signup-email">Email address</label>
             <input
-              id="signup-identifier"
+              id="signup-email"
               className="form-input"
-              type="text"
-              placeholder="08012345678 or you@email.com"
-              value={form.phoneOrEmail}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('phoneOrEmail', e.target.value)}
-              autoComplete="username"
+              type="email"
+              placeholder="you@email.com"
+              value={form.email}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('email', e.target.value)}
+              autoComplete="email"
               inputMode="email"
             />
-            {errors.phoneOrEmail && <p className="form-error">{errors.phoneOrEmail}</p>}
+            {errors.email && <p className="form-error">{errors.email}</p>}
           </div>
 
           <div className="form-group">
@@ -173,11 +280,11 @@ export default function SignupScreen({ onSignup, onGoToLogin }: Props) {
               className="form-input"
               type="password"
               placeholder="Same password again"
-              value={form.confirmPassword}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('confirmPassword', e.target.value)}
+              value={form.passwordConfirmation}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('passwordConfirmation', e.target.value)}
               autoComplete="new-password"
             />
-            {errors.confirmPassword && <p className="form-error">{errors.confirmPassword}</p>}
+            {errors.passwordConfirmation && <p className="form-error">{errors.passwordConfirmation}</p>}
           </div>
 
           <button id="signup-next-btn" type="button" className="btn btn--primary mt-4" onClick={handleNext}>
