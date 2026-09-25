@@ -8,6 +8,8 @@ import { findOrCreateCustomer, getCustomers } from '@/data/repositories/customer
 import { createCreditRecord, getCreditRecordsForDate } from '@/data/repositories/creditRecordRepo';
 import {
   formatNaira,
+  formatMoneyInput,
+  parseMoneyInput,
   todayISO,
   formatDate,
   creditSalesForDate,
@@ -92,11 +94,11 @@ function CreditLineInput({
         <input
           id={`credit-amount-${index}`}
           className="form-input"
-          type="number"
+          type="text"
           placeholder="₦ Amount"
-          value={line.amount === 0 ? '' : String(line.amount)}
+          value={line.amount === 0 ? '' : formatMoneyInput(line.amount)}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(index, 'amount', e.target.value)}
-          inputMode="decimal"
+          inputMode="numeric"
           style={{ width: 120, padding: '10px 12px', textAlign: 'right' }}
         />
       </div>
@@ -127,10 +129,10 @@ function ConfirmationOverlay({
   onConfirm: () => void;
   onEdit: () => void;
 }) {
-  const totalSold = parseFloat(form.totalSold || '0');
+  const totalSold = parseMoneyInput(form.totalSold);
   const totalCredit = form.creditLines.reduce((s: number, l: CreditLine) => s + l.amount, 0);
   const cashSales = Math.max(0, totalSold - totalCredit);
-  const expenses = parseFloat(form.expenses || '0');
+  const expenses = parseMoneyInput(form.expenses);
 
   return (
     <div className="modal-overlay" onClick={onEdit}>
@@ -301,8 +303,8 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
 
         setForm((prev) => {
           const next = { ...prev };
-          if (parsed.totalSold !== undefined) next.totalSold = String(parsed.totalSold);
-          if (parsed.expenses !== undefined) next.expenses = String(parsed.expenses);
+          if (parsed.totalSold !== undefined) next.totalSold = formatMoneyInput(parsed.totalSold);
+          if (parsed.expenses !== undefined) next.expenses = formatMoneyInput(parsed.expenses);
           if (parsed.creditLines.length > 0) {
             next.creditLines = parsed.creditLines.map((c) => ({ customerName: c.customerName, amount: c.amount }));
           }
@@ -340,7 +342,7 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
     setForm((f: FormState) => {
       const lines = [...f.creditLines];
       if (field === 'amount') {
-        lines[idx] = { ...lines[idx], amount: parseFloat(value) || 0 };
+        lines[idx] = { ...lines[idx], amount: parseMoneyInput(value) };
       } else {
         lines[idx] = { ...lines[idx], [field]: value };
       }
@@ -359,10 +361,10 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
     setShowConfirm(false);
     setIsSaving(true);
 
-    const totalSold = parseFloat(form.totalSold || '0');
+    const totalSold = parseMoneyInput(form.totalSold);
     const totalCredit = form.creditLines.reduce((s: number, l: CreditLine) => s + l.amount, 0);
     const cashSales = Math.max(0, totalSold - totalCredit);
-    const expenses = parseFloat(form.expenses || '0');
+    const expenses = parseMoneyInput(form.expenses);
 
     try {
       await db.transaction('rw', [db.daily_tallies, db.customers, db.credit_records, db.outbox], async () => {
@@ -402,8 +404,8 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
   }, [form, business, today, loadTodaySummary]);
 
   const handleSubmitForm = () => {
-    const totalSold = parseFloat(form.totalSold || '0');
-    if (totalSold === 0 && parseFloat(form.expenses || '0') === 0) {
+    const totalSold = parseMoneyInput(form.totalSold);
+    if (totalSold === 0 && parseMoneyInput(form.expenses) === 0) {
       showToast('Enter at least one number to save.', 'error');
       return;
     }
@@ -575,11 +577,11 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
                 <input
                   id="total-sold"
                   className="form-input form-input--money"
-                  type="number"
+                  type="text"
                   placeholder="0"
                   value={form.totalSold}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f: FormState) => ({ ...f, totalSold: e.target.value }))}
-                  inputMode="decimal"
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f: FormState) => ({ ...f, totalSold: formatMoneyInput(e.target.value) }))}
+                  inputMode="numeric"
                   style={{ paddingLeft: 36 }}
                 />
               </div>
@@ -599,11 +601,11 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
                 <input
                   id="expenses"
                   className="form-input form-input--money"
-                  type="number"
+                  type="text"
                   placeholder="0"
                   value={form.expenses}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f: FormState) => ({ ...f, expenses: e.target.value }))}
-                  inputMode="decimal"
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f: FormState) => ({ ...f, expenses: formatMoneyInput(e.target.value) }))}
+                  inputMode="numeric"
                   style={{ paddingLeft: 36 }}
                 />
               </div>

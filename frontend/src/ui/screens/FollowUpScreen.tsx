@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useFollowUpList } from '@/state/useFollowUpList';
-import { formatNaira, formatDate } from '@/domain/derivations';
+import { formatNaira, formatDate, formatMoneyInput, parseMoneyInput } from '@/domain/derivations';
 import type { Business, DebtorSummary } from '@/domain/types';
 import SyncIndicator from '@/ui/components/SyncIndicator';
 
@@ -25,12 +25,12 @@ export default function FollowUpScreen({ business }: Props) {
 
   const handleOpenPayment = (debtor: DebtorSummary) => {
     setSelectedDebtor(debtor);
-    setPaymentAmount(String(debtor.totalOutstanding));
+    setPaymentAmount(formatMoneyInput(debtor.totalOutstanding));
   };
 
   const handleConfirmPayment = async () => {
     if (!selectedDebtor) return;
-    const amount = parseFloat(paymentAmount || '0');
+    const amount = parseMoneyInput(paymentAmount);
     if (amount <= 0) {
       showToast('Enter a valid amount.');
       return;
@@ -226,11 +226,11 @@ export default function FollowUpScreen({ business }: Props) {
                 <input
                   id="payment-amount"
                   className="form-input form-input--money"
-                  type="number"
+                  type="text"
                   placeholder="0"
                   value={paymentAmount}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPaymentAmount(e.target.value)}
-                  inputMode="decimal"
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPaymentAmount(formatMoneyInput(e.target.value))}
+                  inputMode="numeric"
                   style={{ paddingLeft: 36 }}
                 />
               </div>

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import type { Business } from '@/domain/types';
+import { formatMoneyInput, parseMoneyInput } from '@/domain/derivations';
 
 interface Props {
   onComplete: (patch: Partial<Omit<Business, 'id' | 'client_id' | 'synced' | 'updated_at'>>) => Promise<void>;
@@ -27,7 +28,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
     await onComplete({
       name: businessName,
       type: businessType,
-      starting_cash: parseFloat(startingCash || '0'),
+      starting_cash: parseMoneyInput(startingCash),
       language: 'en',
       voice_enabled: false,
     });
@@ -93,11 +94,11 @@ export default function OnboardingScreen({ onComplete }: Props) {
           <input
             id="onboard-cash"
             className="form-input form-input--money"
-            type="number"
+            type="text"
             placeholder="0"
             value={startingCash}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStartingCash(e.target.value)}
-            inputMode="decimal"
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStartingCash(formatMoneyInput(e.target.value))}
+            inputMode="numeric"
           />
           <p className="text-xs text-muted mt-2">
             How much cash your business has right now.

@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { AuthApiError, resendVerificationEmail } from '@/api/authApi';
+import { formatMoneyInput, parseMoneyInput } from '@/domain/derivations';
 
 interface SignupPayload {
   displayName: string;
@@ -95,7 +96,7 @@ export default function SignupScreen({ onSignup, onGoToLogin }: Props) {
         passwordConfirmation: form.passwordConfirmation,
         businessName: form.businessName.trim(),
         businessType: form.businessType,
-        startingCash: parseFloat(form.startingCash || '0'),
+        startingCash: parseMoneyInput(form.startingCash),
       });
       setIsRegistered(true);
     } catch (err: unknown) {
@@ -328,11 +329,11 @@ export default function SignupScreen({ onSignup, onGoToLogin }: Props) {
             <input
               id="starting-cash"
               className="form-input form-input--money"
-              type="number"
+              type="text"
               placeholder="0"
               value={form.startingCash}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('startingCash', e.target.value)}
-              inputMode="decimal"
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => set('startingCash', formatMoneyInput(e.target.value))}
+              inputMode="numeric"
             />
             <p className="text-xs text-muted mt-2">
               How much cash your business currently has. Used to calculate your cash position.

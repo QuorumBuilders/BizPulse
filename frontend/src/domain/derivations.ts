@@ -392,6 +392,42 @@ export function formatNaira(amount: number): string {
 }
 
 /**
+ * Format a money string for interactive inputs as the user types,
+ * inserting thousands separators, e.g. "30000" -> "30,000".
+ * Preserves decimal points if typed.
+ */
+export function formatMoneyInput(raw: string | number | undefined | null): string {
+  if (raw === undefined || raw === null || raw === '') return '';
+  const str = String(raw).trim();
+  const cleaned = str.replace(/[^\d.]/g, '');
+  if (!cleaned) return '';
+
+  const parts = cleaned.split('.');
+  let intPart = '';
+  if (parts[0]) {
+    try {
+      intPart = BigInt(parts[0]).toLocaleString('en-US');
+    } catch {
+      intPart = parts[0];
+    }
+  }
+  const decPart = parts.length > 1 ? '.' + parts.slice(1).join('') : '';
+  return intPart + decPart;
+}
+
+/**
+ * Parse an amount entered in an input (with optional commas or currency symbol)
+ * to a clean floating-point number, e.g. "30,000" -> 30000.
+ */
+export function parseMoneyInput(raw: string | number | undefined | null): number {
+  if (typeof raw === 'number') return isNaN(raw) ? 0 : raw;
+  if (!raw) return 0;
+  const cleaned = String(raw).replace(/[^0-9.-]+/g, '');
+  const parsed = parseFloat(cleaned);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+/**
  * Format a YYYY-MM-DD date string for display, e.g. "24 Sep 2026"
  */
 export function formatDate(dateStr: string): string {

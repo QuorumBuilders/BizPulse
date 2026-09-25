@@ -23,6 +23,9 @@ import {
   buildDebtorSummaries,
   generateInsights,
   formatNaira,
+  formatAmount,
+  formatMoneyInput,
+  parseMoneyInput,
   formatDate,
   todayISO,
   previousMonth,
@@ -424,6 +427,48 @@ describe('formatNaira', () => {
 
   it('handles zero', () => {
     expect(formatNaira(0)).toBe('₦0');
+  });
+});
+
+describe('formatAmount', () => {
+  it('formats amounts with thousands separators like 30,000', () => {
+    expect(formatAmount(30000)).toBe('30,000');
+    expect(formatAmount(1500000)).toBe('1,500,000');
+  });
+
+  it('handles zero', () => {
+    expect(formatAmount(0)).toBe('0');
+  });
+});
+
+describe('formatMoneyInput', () => {
+  it('formats numeric strings with commas as user types', () => {
+    expect(formatMoneyInput('30000')).toBe('30,000');
+    expect(formatMoneyInput('1500000')).toBe('1,500,000');
+    expect(formatMoneyInput('30,000')).toBe('30,000');
+  });
+
+  it('handles decimals correctly', () => {
+    expect(formatMoneyInput('30000.50')).toBe('30,000.50');
+  });
+
+  it('handles empty or blank values', () => {
+    expect(formatMoneyInput('')).toBe('');
+    expect(formatMoneyInput(null)).toBe('');
+    expect(formatMoneyInput(undefined)).toBe('');
+  });
+});
+
+describe('parseMoneyInput', () => {
+  it('parses formatted money strings back into clean numbers', () => {
+    expect(parseMoneyInput('30,000')).toBe(30000);
+    expect(parseMoneyInput('1,500,000.50')).toBe(1500000.5);
+    expect(parseMoneyInput('₦30,000')).toBe(30000);
+  });
+
+  it('handles empty or zero', () => {
+    expect(parseMoneyInput('')).toBe(0);
+    expect(parseMoneyInput(0)).toBe(0);
   });
 });
 
