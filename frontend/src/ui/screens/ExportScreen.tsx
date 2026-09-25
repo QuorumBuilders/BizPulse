@@ -186,9 +186,9 @@ export default function ExportScreen({ business, onBack }: Props) {
       </div>
 
       {isLoading ? (
-        <div className="card text-center" style={{ padding: 36 }}>
-          <div className="spinner" style={{ margin: '0 auto 12px' }} />
-          <p className="text-sm text-muted">Compiling your ledger facts…</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="skeleton" style={{ height: 160, borderRadius: 'var(--radius-lg)' }} />
+          <div className="skeleton" style={{ height: 180, borderRadius: 'var(--radius-lg)' }} />
         </div>
       ) : (
         <>

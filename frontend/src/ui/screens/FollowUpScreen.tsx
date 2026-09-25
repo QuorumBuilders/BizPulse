@@ -119,9 +119,10 @@ export default function FollowUpScreen({ business }: Props) {
       {/* Debtors List */}
       <div style={{ padding: '0 20px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {isLoading ? (
-          <div className="card text-center" style={{ padding: 36 }}>
-            <div className="spinner" style={{ margin: '0 auto 12px' }} />
-            <p className="text-sm text-muted">Loading debtor records…</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div className="skeleton skeleton--card" />
+            <div className="skeleton skeleton--card" />
+            <div className="skeleton skeleton--card" />
           </div>
         ) : debtors.length === 0 ? (
           <div className="card text-center" style={{ padding: 36 }}>

@@ -12,6 +12,7 @@ import FollowUpScreen from '@/ui/screens/FollowUpScreen';
 import ExportScreen from '@/ui/screens/ExportScreen';
 import SettingsModal from '@/ui/components/SettingsModal';
 import BottomNav, { type Tab } from '@/ui/components/BottomNav';
+import InstallNudge from '@/ui/components/InstallNudge';
 
 /**
  * Root client component — handles routing and auth state.
@@ -42,6 +43,17 @@ export default function AppShell({
     return stopSync;
   }, [isAuthenticated]);
 
+  // Keep URL aligned when user is already authenticated
+  // MUST be before any early returns to satisfy Rules of Hooks
+  useEffect(() => {
+    if (isAuthenticated && typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (path === '/login' || path === '/signup') {
+        window.history.replaceState(null, '', '/dashboard');
+      }
+    }
+  }, [isAuthenticated]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ minHeight: '100dvh' }}>
@@ -60,14 +72,20 @@ export default function AppShell({
       return (
         <SignupScreen
           onSignup={signup}
-          onGoToLogin={() => setAuthView('login')}
+          onGoToLogin={() => {
+            setAuthView('login');
+            if (typeof window !== 'undefined') window.history.replaceState(null, '', '/login');
+          }}
         />
       );
     }
     return (
       <LoginScreen
         onLogin={login}
-        onGoToSignup={() => setAuthView('signup')}
+        onGoToSignup={() => {
+          setAuthView('signup');
+          if (typeof window !== 'undefined') window.history.replaceState(null, '', '/signup');
+        }}
       />
     );
   }
@@ -84,6 +102,7 @@ export default function AppShell({
   // Authenticated + has business — show main app
   return (
     <>
+      <InstallNudge />
       <main style={{ paddingBottom: 80 }}>
         {isExporting ? (
           <ExportScreen business={business} onBack={() => setIsExporting(false)} />

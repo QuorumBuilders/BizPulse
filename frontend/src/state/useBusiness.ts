@@ -9,8 +9,9 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { getBusiness, createBusiness, updateBusiness } from '../data/repositories/businessRepo';
-import { hasStoredToken, loadStoredTokens, storeTokens, clearTokens } from '../data/sync';
-import { apiSignup, apiLogin } from '../api/client';
+import { hasStoredToken } from '../data/sync';
+import { authLogin, authLogoutWithApi, hydrateAuth, getAuthState } from '../state/authStore';
+import { register } from '../api/authApi';
 import type { Business } from '../domain/types';
 
 export interface AuthState {
@@ -28,40 +29,32 @@ export function useBusiness() {
     error: null,
   });
 
-  // On mount: check for stored token and load local business
+  // On mount: hydrate auth tokens from storage and load local business
   useEffect(() => {
     let mounted = true;
-    try {
-      loadStoredTokens();
-      const hasToken = hasStoredToken();
 
-      getBusiness()
-        .then((biz) => {
-          if (!mounted) return;
-          setState({
-            // Authenticated if token present OR a local business already exists
-            isAuthenticated: hasToken || !!biz,
-            isLoading: false,
-            business: biz ?? null,
-            error: null,
-          });
-        })
-        .catch((err) => {
-          console.warn('[BizPulse] Could not read local business on init:', err);
-          if (!mounted) return;
-          setState({
-            isAuthenticated: hasToken,
-            isLoading: false,
-            business: null,
-            error: null,
-          });
+    async function init() {
+      try {
+        await hydrateAuth();
+        const auth = getAuthState();
+        const hasToken = auth.isAuthenticated || hasStoredToken();
+        const biz = await getBusiness();
+
+        if (!mounted) return;
+        setState({
+          isAuthenticated: hasToken,
+          isLoading: false,
+          business: biz ?? null,
+          error: null,
         });
-    } catch (err) {
-      console.warn('[BizPulse] Init error:', err);
-      if (mounted) {
+      } catch (err) {
+        console.warn('[BizPulse] Init error:', err);
+        if (!mounted) return;
         setState((s) => ({ ...s, isLoading: false }));
       }
     }
+
+    init();
 
     // Failsafe timeout: never stay in loading state longer than 1.5s
     const timeout = setTimeout(() => {
@@ -77,30 +70,25 @@ export function useBusiness() {
   }, []);
 
   const signup = useCallback(async (payload: {
-    name: string;
-    phoneOrEmail: string;
+    displayName: string;
+    email: string;
     password: string;
+    passwordConfirmation: string;
     businessName: string;
     businessType: string;
     startingCash: number;
   }) => {
     setState((s) => ({ ...s, isLoading: true, error: null }));
     try {
-      let accessToken = `offline_access_${Date.now()}`;
-      let refreshToken = `offline_refresh_${Date.now()}`;
-      try {
-        const authRes = await apiSignup({
-          name: payload.name,
-          phone_or_email: payload.phoneOrEmail,
-          password: payload.password,
-        });
-        accessToken = authRes.access;
-        refreshToken = authRes.refresh;
-      } catch (netErr) {
-        console.warn('[BizPulse] Backend unreachable during signup, creating local offline account:', netErr);
-      }
-      storeTokens(accessToken, refreshToken);
+      // Call register — on success the user must verify email before logging in
+      await register({
+        email: payload.email,
+        display_name: payload.displayName,
+        password: payload.password,
+        password_confirmation: payload.passwordConfirmation,
+      });
 
+      // Store business locally (offline-first); sync happens after login
       const biz = await createBusiness({
         name: payload.businessName,
         type: payload.businessType,
@@ -109,7 +97,8 @@ export function useBusiness() {
         voice_enabled: false,
       });
 
-      setState({ isAuthenticated: true, isLoading: false, business: biz, error: null });
+      setState({ isAuthenticated: false, isLoading: false, business: biz, error: null });
+      // Caller should redirect to a "check your email" / verify-email-pending screen
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Signup failed. Please try again.';
       setState((s) => ({ ...s, isLoading: false, error: msg }));
@@ -117,19 +106,10 @@ export function useBusiness() {
     }
   }, []);
 
-  const login = useCallback(async (phoneOrEmail: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     setState((s) => ({ ...s, isLoading: true, error: null }));
     try {
-      let accessToken = `offline_access_${Date.now()}`;
-      let refreshToken = `offline_refresh_${Date.now()}`;
-      try {
-        const authRes = await apiLogin({ phone_or_email: phoneOrEmail, password });
-        accessToken = authRes.access;
-        refreshToken = authRes.refresh;
-      } catch (netErr) {
-        console.warn('[BizPulse] Backend unreachable during login, authenticating locally:', netErr);
-      }
-      storeTokens(accessToken, refreshToken);
+      await authLogin(email, password); // sets tokens in authStore + schedules refresh
       const biz = await getBusiness();
       setState({
         isAuthenticated: true,
@@ -144,8 +124,8 @@ export function useBusiness() {
     }
   }, []);
 
-  const logout = useCallback(() => {
-    clearTokens();
+  const logout = useCallback(async () => {
+    await authLogoutWithApi(); // blacklists refresh token on server, clears local state
     setState({ isAuthenticated: false, isLoading: false, business: null, error: null });
   }, []);
 

@@ -17,6 +17,7 @@ import { useDashboard } from '@/state/useDashboard';
 import { useFollowUpList } from '@/state/useFollowUpList';
 import type { Business, CreditLine, DailyTally, CreditRecord, Customer } from '@/domain/types';
 import SyncIndicator from '@/ui/components/SyncIndicator';
+import { parseVoiceTranscript } from '@/domain/voiceParser';
 
 interface Props {
   business: Business;
@@ -266,6 +267,67 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
     setTimeout(() => setToast(null), 3000);
   };
 
+  // Speech-to-text recording
+  const [isListening, setIsListening] = useState(false);
+  const [voiceHeard, setVoiceHeard] = useState<string | null>(null);
+
+  const startVoiceInput = () => {
+    // Check Web Speech API support
+    const SpeechRec = typeof window !== 'undefined' && (
+      (window as unknown as { SpeechRecognition?: any }).SpeechRecognition ||
+      (window as unknown as { webkitSpeechRecognition?: any }).webkitSpeechRecognition
+    );
+
+    if (!SpeechRec) {
+      showToast('Speech recognition not supported in this browser. Please type your numbers.', 'error');
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRec();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = business.language === 'yo' ? 'yo-NG' : business.language === 'pcm' ? 'pcm-NG' : 'en-NG';
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        setVoiceHeard(null);
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setVoiceHeard(transcript);
+        const parsed = parseVoiceTranscript(transcript);
+
+        setForm((prev) => {
+          const next = { ...prev };
+          if (parsed.totalSold !== undefined) next.totalSold = String(parsed.totalSold);
+          if (parsed.expenses !== undefined) next.expenses = String(parsed.expenses);
+          if (parsed.creditLines.length > 0) {
+            next.creditLines = parsed.creditLines.map((c) => ({ customerName: c.customerName, amount: c.amount }));
+          }
+          return next;
+        });
+
+        showToast('Voice tally populated! Check your figures below.', 'success');
+      };
+
+      recognition.onerror = () => {
+        setIsListening(false);
+        showToast('Could not recognize voice. Please type your numbers.', 'error');
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognition.start();
+    } catch {
+      setIsListening(false);
+      showToast('Microphone error. Please type your numbers.', 'error');
+    }
+  };
+
   // Credit line helpers
   const addCreditLine = () => {
     setForm((f: FormState) => ({
@@ -429,8 +491,74 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
         <div className="card card--elevated">
           <div className="section-header">
             <h2 style={{ fontSize: '1rem' }}>Today&apos;s tally</h2>
-            {isSaving && <div className="spinner" style={{ width: 18, height: 18 }} />}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                id="voice-tally-btn"
+                className={`btn btn--sm ${isListening ? 'btn--primary' : 'btn--secondary'}`}
+                onClick={startVoiceInput}
+                disabled={isListening}
+                style={{ padding: '6px 12px', fontSize: '0.8rem', gap: 6 }}
+                title="Speak today's tally"
+              >
+                {isListening ? (
+                  <>
+                    <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+                    Listening…
+                  </>
+                ) : (
+                  <>🎙️ Speak tally</>
+                )}
+              </button>
+              {isSaving && <div className="spinner" style={{ width: 18, height: 18 }} />}
+            </div>
           </div>
+
+          {isListening && (
+            <div
+              className="card fade-in"
+              style={{
+                background: 'rgba(16,185,129,0.08)',
+                borderColor: 'var(--color-emerald)',
+                padding: '12px 16px',
+                marginBottom: 12,
+              }}
+            >
+              <p className="text-xs font-semibold" style={{ color: 'var(--color-emerald-light)' }}>
+                🎙️ Listening... speak clearly:
+              </p>
+              <p className="text-xs text-muted mt-1">
+                e.g. &ldquo;Sold 25000, expenses 4000, and Bola took 5000 credit&rdquo;
+              </p>
+            </div>
+          )}
+
+          {voiceHeard && !isListening && (
+            <div
+              className="card fade-in"
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                borderColor: 'var(--color-border)',
+                padding: '10px 14px',
+                marginBottom: 12,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <p className="text-xs text-muted" style={{ fontStyle: 'italic' }}>
+                🗣️ Heard: &ldquo;{voiceHeard}&rdquo;
+              </p>
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                onClick={() => setVoiceHeard(null)}
+                style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
           <div className="flex flex-col gap-4">
             {/* Total Sold */}

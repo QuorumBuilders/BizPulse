@@ -34,38 +34,32 @@ import {
   apiUpdateCreditRecord,
   apiCreateRepayment,
   ApiError,
-  setAccessToken,
 } from '../api/client';
+import { _setTokens as setTokensInStore, authLogout } from '../state/authStore';
 import type { OutboxEntry } from '../domain/types';
 
 // ---------------------------------------------------------------------------
 // Token management (loads from localStorage on init)
 // ---------------------------------------------------------------------------
 
-const TOKEN_KEY = 'bizpulse_access_token';
-const REFRESH_KEY = 'bizpulse_refresh_token';
+const REFRESH_KEY = 'bp_refresh_token';
 
 export function loadStoredTokens(): void {
-  if (typeof window === 'undefined') return;
-  const token = localStorage.getItem(TOKEN_KEY);
-  if (token) setAccessToken(token);
+  // No-op: authStore.hydrateAuth() handles token hydration on boot.
+  // Kept for backwards compat with useBusiness.ts.
 }
 
 export function storeTokens(access: string, refresh: string): void {
-  localStorage.setItem(TOKEN_KEY, access);
-  localStorage.setItem(REFRESH_KEY, refresh);
-  setAccessToken(access);
+  setTokensInStore({ access, refresh });
 }
 
 export function clearTokens(): void {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(REFRESH_KEY);
-  setAccessToken(null);
+  authLogout();
 }
 
 export function hasStoredToken(): boolean {
   if (typeof window === 'undefined') return false;
-  return !!localStorage.getItem(TOKEN_KEY);
+  return !!localStorage.getItem(REFRESH_KEY);
 }
 
 // ---------------------------------------------------------------------------
