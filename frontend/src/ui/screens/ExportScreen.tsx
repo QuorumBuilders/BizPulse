@@ -202,7 +202,7 @@ export default function ExportScreen({ business, onBack }: Props) {
               marginBottom: 16,
             }}
           >
-            <div className="flex justify-between items-start" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 12, marginBottom: 16 }}>
+            <div className="flex justify-between items-start" style={{ borderBottom: '1px solid var(--color-border)', paddingBottom: 12, marginBottom: 16 }}>
               <div>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
                   {business.name}
@@ -223,7 +223,7 @@ export default function ExportScreen({ business, onBack }: Props) {
 
             {/* Figures Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 16 }}>
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px 12px', borderRadius: 8 }}>
+              <div style={{ background: 'var(--color-surface-overlay)', padding: '10px 12px', borderRadius: 8 }}>
                 <div className="text-xs text-muted">Total Revenue</div>
                 <div className="font-bold text-emerald" style={{ fontSize: '1.125rem' }}>
                   {formatNaira(totalRevenue)}
@@ -233,7 +233,7 @@ export default function ExportScreen({ business, onBack }: Props) {
                 </div>
               </div>
 
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px 12px', borderRadius: 8 }}>
+              <div style={{ background: 'var(--color-surface-overlay)', padding: '10px 12px', borderRadius: 8 }}>
                 <div className="text-xs text-muted">Total Expenses</div>
                 <div className="font-bold text-rose" style={{ fontSize: '1.125rem' }}>
                   {formatNaira(totalExpenses)}
@@ -243,7 +243,7 @@ export default function ExportScreen({ business, onBack }: Props) {
                 </div>
               </div>
 
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px 12px', borderRadius: 8 }}>
+              <div style={{ background: 'var(--color-surface-overlay)', padding: '10px 12px', borderRadius: 8 }}>
                 <div className="text-xs text-muted">Net Business Result</div>
                 <div
                   className="font-bold"
@@ -259,7 +259,7 @@ export default function ExportScreen({ business, onBack }: Props) {
                 </div>
               </div>
 
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '10px 12px', borderRadius: 8 }}>
+              <div style={{ background: 'var(--color-surface-overlay)', padding: '10px 12px', borderRadius: 8 }}>
                 <div className="text-xs text-muted">Receivables (Owed)</div>
                 <div className="font-bold text-amber" style={{ fontSize: '1.125rem' }}>
                   {formatNaira(totalOutstanding)}

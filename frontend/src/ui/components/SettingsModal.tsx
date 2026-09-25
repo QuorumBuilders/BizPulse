@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import type { Business } from '@/domain/types';
+import { useTheme } from '@/state/useTheme';
 import { formatNaira } from '@/domain/derivations';
 import { useSyncStatus } from '@/state/useSyncStatus';
 import { pendingCount } from '@/data/outbox';
@@ -25,6 +26,7 @@ export default function SettingsModal({
 }: Props) {
   const status = useSyncStatus();
   const [outboxCount, setOutboxCount] = useState(0);
+  const { theme, toggle } = useTheme();
   const [voiceEnabled, setVoiceEnabled] = useState(business.voice_enabled);
   const [selectedLanguage, setSelectedLanguage] = useState(business.language || 'en');
   const [isSaving, setIsSaving] = useState(false);
@@ -147,7 +149,7 @@ export default function SettingsModal({
         </div>
 
         {/* Business Profile Summary */}
-        <div className="card" style={{ marginBottom: 16, background: 'rgba(255,255,255,0.02)' }}>
+        <div className="card" style={{ marginBottom: 16, background: 'var(--color-surface-overlay)' }}>
           <div className="text-xs text-muted font-semibold uppercase tracking-wider mb-2">
             Business Profile
           </div>
@@ -212,6 +214,30 @@ export default function SettingsModal({
               <option value="pcm">Pidgin</option>
             </select>
           </div>
+
+          <div className="divider" style={{ margin: '12px 0' }} />
+
+          {/* Theme Toggle */}
+          <div className="flex justify-between items-center" style={{ padding: '8px 0' }}>
+            <div>
+              <div className="font-medium text-sm flex items-center gap-2">
+                <span>{theme === 'light' ? '☀️' : '🌙'} Appearance</span>
+              </div>
+              <p className="text-xs text-muted" style={{ marginTop: 2 }}>
+                {theme === 'light' ? 'Light mode active' : 'Dark mode active'}
+              </p>
+            </div>
+            <button
+              id="settings-theme-toggle"
+              type="button"
+              className={`btn btn--sm ${theme === 'dark' ? 'btn--primary' : 'btn--secondary'}`}
+              onClick={toggle}
+              aria-label="Toggle colour theme"
+              style={{ minWidth: 68, padding: '6px 12px', fontSize: '0.8125rem' }}
+            >
+              {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
+            </button>
+          </div>
         </div>
 
         {/* WhatsApp Bot Touchpoint */}
@@ -234,7 +260,7 @@ export default function SettingsModal({
             style={{
               padding: '10px 12px',
               borderRadius: 'var(--radius-sm)',
-              background: 'rgba(255,255,255,0.03)',
+              background: 'var(--color-surface-overlay)',
               border: '1px dashed var(--color-border)',
               margin: '8px 0 12px',
             }}

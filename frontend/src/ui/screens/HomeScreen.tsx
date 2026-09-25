@@ -537,7 +537,7 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
             <div
               className="card fade-in"
               style={{
-                background: 'rgba(255,255,255,0.03)',
+                background: 'var(--color-surface-overlay)',
                 borderColor: 'var(--color-border)',
                 padding: '10px 14px',
                 marginBottom: 12,

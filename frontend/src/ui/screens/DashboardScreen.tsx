@@ -247,7 +247,7 @@ export default function DashboardScreen({ business, onGoToExport }: Props) {
                           ? 'rgba(16,185,129,0.08)'
                           : insight.type === 'warning'
                           ? 'rgba(245,158,11,0.08)'
-                          : 'rgba(255,255,255,0.03)',
+                          : 'var(--color-surface-overlay)',
                       borderLeft: `3px solid ${
                         insight.type === 'positive'
                           ? 'var(--color-emerald)'

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useBusiness } from '@/state/useBusiness';
+import { useTheme } from '@/state/useTheme';
 import { startSyncScheduler } from '@/data/sync';
 import SignupScreen from '@/ui/screens/SignupScreen';
 import LoginScreen from '@/ui/screens/LoginScreen';
@@ -31,6 +32,7 @@ export default function AppShell({
   initialExport = false,
 }: AppShellProps = {}) {
   const { isAuthenticated, isLoading, business, signup, login, logout, saveBusiness } = useBusiness();
+  const { theme, toggle } = useTheme();
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [isExporting, setIsExporting] = useState(initialExport);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -102,6 +104,28 @@ export default function AppShell({
   // Authenticated + has business — show main app
   return (
     <>
+      {/* Quick-access theme toggle — visible in the authenticated shell */}
+      <button
+        id="appshell-theme-toggle"
+        type="button"
+        className="btn btn--icon"
+        onClick={toggle}
+        aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+        title={theme === 'light' ? 'Dark mode' : 'Light mode'}
+        style={{
+          position: 'fixed',
+          top: 12,
+          right: 16,
+          zIndex: 90,
+          width: 36,
+          height: 36,
+          padding: 0,
+          fontSize: '1rem',
+          lineHeight: 1,
+        }}
+      >
+        {theme === 'light' ? '🌙' : '☀️'}
+      </button>
       <InstallNudge />
       <main style={{ paddingBottom: 80 }}>
         {isExporting ? (

@@ -167,7 +167,7 @@ export default function SignupScreen({ onSignup, onGoToLogin }: Props) {
         </div>
 
         {resendStatus && (
-          <div className="card" style={{ marginBottom: 20, background: 'rgba(255,255,255,0.04)' }}>
+          <div className="card" style={{ marginBottom: 20, background: 'var(--color-surface-overlay)' }}>
             <p className="text-xs text-muted">{resendStatus}</p>
           </div>
         )}
