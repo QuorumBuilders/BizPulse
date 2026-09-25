@@ -26,8 +26,9 @@ SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DJANGO_DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = ["bizpulse.pythonanywhere.com", "localhost", "127.0.0.1"]
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost").split(",")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+
 
 # Application definition
 
@@ -60,7 +61,7 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
+    "http://localhost:3000",
     FRONTEND_URL,
 ]
 
@@ -80,6 +81,23 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "myapp.exceptions.custom_exception_handler",
     "DEFAULT_PAGINATION_CLASS": "myapp.pagination.StandardPagination",
+
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.ScopedRateThrottle",
+    ],
+
+    "DEFAULT_THROTTLE_RATES": {
+    "anon": "60/minute",
+    "user": "300/minute",
+
+    "login": "10/minute",
+    "register": "5/minute",
+    "password_reset": "5/hour",
+    "verification_resend": "5/hour",
+    "email_change": "5/hour",
+}
 }
 
 SPECTACULAR_SETTINGS = {

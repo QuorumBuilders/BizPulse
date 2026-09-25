@@ -109,6 +109,7 @@ class BusinessRestoreView(generics.GenericAPIView):
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_scope = "register"
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -172,6 +173,7 @@ class VerifyEmailView(generics.GenericAPIView):
 
 class EmailTokenObtainPairView(TokenObtainPairView):
     serializer_class = EmailTokenObtainPairSerializer
+    throttle_scope = "login"
 
 
 class LogoutView(TokenBlacklistView):
@@ -183,6 +185,7 @@ class LogoutView(TokenBlacklistView):
 class ResendVerificationView(generics.GenericAPIView):
     serializer_class = ResendVerificationSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_scope = "verification_resend"
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -214,6 +217,7 @@ class ResendVerificationView(generics.GenericAPIView):
 class ChangeEmailView(generics.GenericAPIView):
     serializer_class = ChangeEmailSerializer
     permission_classes = [permissions.IsAuthenticated]
+    throttle_scope = "email_change"
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -322,6 +326,7 @@ class PasswordChangeView(generics.GenericAPIView):
 class PasswordResetRequestView(generics.GenericAPIView):
     serializer_class = PasswordResetRequestSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_scope = "password_reset"
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
