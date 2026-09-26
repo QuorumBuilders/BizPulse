@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     # Add your custom apps here
     'accounts',
     'finance',
+    'ai',
     # Third-party
     "rest_framework",
     "corsheaders",
