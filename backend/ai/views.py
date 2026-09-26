@@ -10,6 +10,7 @@ class TranscriptionView(generics.CreateAPIView):
     serializer_class = TranscriptionSerializer
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser]
+    throttle_scope = "transcribe"
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

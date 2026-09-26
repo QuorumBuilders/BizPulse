@@ -98,6 +98,7 @@ REST_FRAMEWORK = {
     "password_reset": "5/hour",
     "verification_resend": "5/hour",
     "email_change": "5/hour",
+    "transcribe": "10/minute",
 }
 }
 
