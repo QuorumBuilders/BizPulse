@@ -6,7 +6,7 @@ import { useTheme } from '@/state/useTheme';
 import { formatNaira } from '@/domain/derivations';
 import { useSyncStatus } from '@/state/useSyncStatus';
 import { pendingCount } from '@/data/outbox';
-import { changePassword, AuthApiError } from '@/api/authApi';
+import { changePassword, changeEmail, AuthApiError } from '@/api/authApi';
 import { getAccessToken } from '@/state/authStore';
 
 interface Props {
@@ -40,6 +40,14 @@ export default function SettingsModal({
   const [pwdLoading, setPwdLoading] = useState(false);
   const [pwdError, setPwdError] = useState<string | null>(null);
   const [pwdSuccess, setPwdSuccess] = useState<string | null>(null);
+
+  // Change Email state
+  const [showChangeEmail, setShowChangeEmail] = useState(false);
+  const [currentPasswordForEmail, setCurrentPasswordForEmail] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailSuccess, setEmailSuccess] = useState<string | null>(null);
 
   React.useEffect(() => {
     pendingCount().then(setOutboxCount).catch(() => {});
@@ -125,6 +133,56 @@ export default function SettingsModal({
       }
     } finally {
       setPwdLoading(false);
+    }
+  };
+
+  const handleChangeEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailError(null);
+    setEmailSuccess(null);
+
+    if (!currentPasswordForEmail) {
+      setEmailError('Current password is required.');
+      return;
+    }
+
+    if (!newEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail.trim())) {
+      setEmailError('Please enter a valid new email address.');
+      return;
+    }
+
+    const token = getAccessToken();
+    if (!token) {
+      setEmailError('Session expired. Please sign in again.');
+      return;
+    }
+
+    setEmailLoading(true);
+    try {
+      const res = await changeEmail(
+        {
+          current_password: currentPasswordForEmail,
+          new_email: newEmail.trim().toLowerCase(),
+        },
+        token
+      );
+      setEmailSuccess(res.message || 'Verification email sent! Check your new inbox.');
+      setCurrentPasswordForEmail('');
+      setNewEmail('');
+    } catch (err: unknown) {
+      if (err instanceof AuthApiError) {
+        if (err.code === 'INVALID_PASSWORD') {
+          setEmailError('Current password is incorrect.');
+        } else if (err.code === 'EMAIL_ALREADY_IN_USE') {
+          setEmailError('An account with this email already exists.');
+        } else {
+          setEmailError(err.message || 'Failed to request email change.');
+        }
+      } else {
+        setEmailError('Network error. Check connection and try again.');
+      }
+    } finally {
+      setEmailLoading(false);
     }
   };
 
@@ -379,6 +437,76 @@ export default function SettingsModal({
                 style={{ width: '100%' }}
               >
                 {pwdLoading ? 'Updating…' : 'Update Password'}
+              </button>
+            </form>
+          )}
+        </div>
+
+        {/* Change Email Section */}
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="flex justify-between items-center" style={{ marginBottom: showChangeEmail ? 12 : 0 }}>
+            <div className="text-xs text-muted font-semibold uppercase tracking-wider">
+              Account Email
+            </div>
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              onClick={() => {
+                setShowChangeEmail(!showChangeEmail);
+                setEmailError(null);
+                setEmailSuccess(null);
+              }}
+              style={{ fontSize: '0.8rem', padding: '2px 8px' }}
+            >
+              {showChangeEmail ? 'Close' : 'Change Email'}
+            </button>
+          </div>
+
+          {showChangeEmail && (
+            <form onSubmit={handleChangeEmail} className="flex flex-col gap-3 mt-2">
+              <p className="text-xs text-muted" style={{ lineHeight: 1.4 }}>
+                We will send a verification link to your new address to confirm the change.
+              </p>
+
+              <div className="form-group">
+                <label className="form-label" style={{ fontSize: '0.75rem' }}>New Email Address</label>
+                <input
+                  type="email"
+                  className="form-input"
+                  placeholder="new@example.com"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  style={{ padding: '8px 12px', fontSize: '0.875rem' }}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" style={{ fontSize: '0.75rem' }}>Current Password</label>
+                <input
+                  type="password"
+                  className="form-input"
+                  placeholder="Enter your current password"
+                  value={currentPasswordForEmail}
+                  onChange={(e) => setCurrentPasswordForEmail(e.target.value)}
+                  style={{ padding: '8px 12px', fontSize: '0.875rem' }}
+                />
+              </div>
+
+              {emailError && (
+                <p className="form-error" style={{ fontSize: '0.75rem' }}>{emailError}</p>
+              )}
+
+              {emailSuccess && (
+                <p className="text-xs" style={{ color: 'var(--color-emerald)' }}>{emailSuccess}</p>
+              )}
+
+              <button
+                type="submit"
+                className="btn btn--primary btn--sm mt-1"
+                disabled={emailLoading}
+                style={{ width: '100%' }}
+              >
+                {emailLoading ? 'Sending link…' : 'Send Verification Link'}
               </button>
             </form>
           )}
