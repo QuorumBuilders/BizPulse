@@ -13,6 +13,7 @@ import FollowUpScreen from '@/ui/screens/FollowUpScreen';
 import ExportScreen from '@/ui/screens/ExportScreen';
 import SettingsModal from '@/ui/components/SettingsModal';
 import BottomNav, { type Tab } from '@/ui/components/BottomNav';
+import SidebarNav from '@/ui/components/SidebarNav';
 import InstallNudge from '@/ui/components/InstallNudge';
 
 /**
@@ -103,64 +104,81 @@ export default function AppShell({
 
   // Authenticated + has business — show main app
   return (
-    <>
-      {/* Quick-access theme toggle — visible in the authenticated shell */}
-      <button
-        id="appshell-theme-toggle"
-        type="button"
-        className="btn btn--icon"
-        onClick={toggle}
-        aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-        title={theme === 'light' ? 'Dark mode' : 'Light mode'}
-        style={{
-          position: 'fixed',
-          top: 12,
-          right: 16,
-          zIndex: 90,
-          width: 36,
-          height: 36,
-          padding: 0,
-          fontSize: '1rem',
-          lineHeight: 1,
-        }}
-      >
-        {theme === 'light' ? '🌙' : '☀️'}
-      </button>
-      <InstallNudge />
-      <main style={{ paddingBottom: 80 }}>
-        {isExporting ? (
-          <ExportScreen business={business} onBack={() => setIsExporting(false)} />
-        ) : (
-          <>
-            {activeTab === 'home' && (
-              <HomeScreen
-                business={business}
-                onGoToFollowUp={() => setActiveTab('followup')}
-                onOpenSettings={() => setIsSettingsOpen(true)}
-              />
-            )}
-            {activeTab === 'dashboard' && (
-              <DashboardScreen business={business} onGoToExport={() => setIsExporting(true)} />
-            )}
-            {activeTab === 'followup' && <FollowUpScreen business={business} />}
-          </>
-        )}
-      </main>
-      <BottomNav
+    <div className="app-shell">
+      <SidebarNav
         activeTab={activeTab}
         onTabChange={(tab) => {
           setIsExporting(false);
           setActiveTab(tab);
         }}
         onOpenSettings={() => setIsSettingsOpen(true)}
-      />
-      <SettingsModal
         business={business}
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        onUpdateBusiness={saveBusiness}
-        onLogout={logout}
       />
-    </>
+
+      <div className="app-main">
+        {/* Quick-access theme toggle — only needed on mobile since sidebar has it on desktop */}
+        <button
+          id="appshell-theme-toggle"
+          type="button"
+          className="btn btn--icon md:hidden"
+          onClick={toggle}
+          aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+          title={theme === 'light' ? 'Dark mode' : 'Light mode'}
+          style={{
+            position: 'fixed',
+            top: 12,
+            right: 16,
+            zIndex: 90,
+            width: 36,
+            height: 36,
+            padding: 0,
+            fontSize: '1rem',
+            lineHeight: 1,
+          }}
+        >
+          {theme === 'light' ? '🌙' : '☀️'}
+        </button>
+
+        <InstallNudge />
+
+        <main className="flex-1 w-full" style={{ paddingBottom: 'calc(var(--space-xl) + 20px)' }}>
+          {isExporting ? (
+            <ExportScreen business={business} onBack={() => setIsExporting(false)} />
+          ) : (
+            <>
+              {activeTab === 'home' && (
+                <HomeScreen
+                  business={business}
+                  onGoToFollowUp={() => setActiveTab('followup')}
+                  onOpenSettings={() => setIsSettingsOpen(true)}
+                />
+              )}
+              {activeTab === 'dashboard' && (
+                <DashboardScreen business={business} onGoToExport={() => setIsExporting(true)} />
+              )}
+              {activeTab === 'followup' && <FollowUpScreen business={business} />}
+            </>
+          )}
+        </main>
+
+        <BottomNav
+          activeTab={activeTab}
+          onTabChange={(tab) => {
+            setIsExporting(false);
+            setActiveTab(tab);
+          }}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+        />
+
+        <SettingsModal
+          business={business}
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          onUpdateBusiness={saveBusiness}
+          onLogout={logout}
+        />
+      </div>
+    </div>
   );
 }
+
