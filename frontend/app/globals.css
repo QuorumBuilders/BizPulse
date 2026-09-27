@@ -1125,3 +1125,443 @@ input[type="number"] { -moz-appearance: textfield; }
   }
 }
 
+/* ============================================================
+   MetricCard — responsive compact/full number display
+   ============================================================ */
+
+/* Mobile (<768px): show compact value button, hide full text */
+.metric-value-desktop { display: none; }
+.metric-value-mobile  { display: block; }
+
+/* Tablet/Desktop (≥768px): show full value, hide compact button */
+@media (min-width: 768px) {
+  .metric-value-desktop { display: block; }
+  .metric-value-mobile  { display: none; }
+}
+
+/* Reduced-motion: disable all animations/transitions site-wide */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+   PART 2 — Sidebar: Ledger Precision design system
+   ============================================================ */
+
+/* Brand block */
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 4px;
+  margin-bottom: 28px;
+}
+
+.sidebar-brand__icon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: var(--color-emerald-glow);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: var(--color-emerald);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sidebar-brand__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.sidebar-brand__name {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+}
+
+.sidebar-brand__biz {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+/* Nav list */
+.sidebar-nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.sidebar-nav-section-label {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  padding: 0 4px;
+  margin-bottom: 6px;
+}
+
+/* Nav item */
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px 9px 12px;
+  border-radius: var(--radius-sm);
+  border: none;
+  border-left: 3px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sidebar-nav-item:hover:not(.sidebar-nav-item--active) {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+
+.sidebar-nav-item--active {
+  background: var(--color-emerald-glow);
+  border-left-color: var(--color-emerald);
+  color: var(--color-emerald-light);
+}
+
+.sidebar-nav-item__icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background var(--transition-fast);
+}
+
+.sidebar-nav-item--active .sidebar-nav-item__icon {
+  background: var(--color-emerald-glow);
+}
+
+.sidebar-nav-item__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.sidebar-nav-item__label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.sidebar-nav-item--active .sidebar-nav-item__label {
+  font-weight: 600;
+}
+
+.sidebar-nav-item__desc {
+  display: block;
+  font-size: 0.6875rem;
+  opacity: 0.7;
+  line-height: 1.2;
+  color: inherit;
+}
+
+/* Sidebar footer */
+.sidebar-footer {
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar-footer-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+  text-align: left;
+}
+
+.sidebar-footer-btn:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+
+.sidebar-theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.sidebar-theme-toggle:hover {
+  background: var(--color-surface-3);
+}
+
+.sidebar-theme-toggle__label {
+  font-weight: 500;
+}
+
+.sidebar-theme-toggle__icon {
+  color: var(--color-text-muted);
+}
+
+/* ============================================================
+   PART 2 — Dashboard layout
+   ============================================================ */
+
+.dashboard-header {
+  padding: 24px 28px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dashboard-header__title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 2px;
+}
+
+.dashboard-header__sub {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.dashboard-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 28px;
+  gap: 12px;
+}
+
+.dashboard-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-content {
+  padding: 4px 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Mobile padding overrides */
+@media (max-width: 767px) {
+  .dashboard-header { padding: 16px 20px 10px; }
+  .dashboard-toolbar { padding: 10px 20px; }
+  .dashboard-content { padding: 4px 20px 24px; }
+}
+
+/* ── Hero card variants ── */
+.card--hero {
+  padding: 24px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.card--hero-profit {
+  background: linear-gradient(145deg, rgba(16,185,129,0.06), var(--color-surface-2));
+  border-color: rgba(16,185,129,0.25);
+  box-shadow: 0 0 32px rgba(16,185,129,0.08);
+}
+
+.card--hero-deficit {
+  background: linear-gradient(145deg, rgba(244,63,94,0.06), var(--color-surface-2));
+  border-color: rgba(244,63,94,0.25);
+}
+
+.card-hero__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+/* ── Compact debtor item (dashboard preview) ── */
+.debtor-item-compact {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+@media (min-width: 768px) {
+  .debtor-item-compact:hover {
+    background: var(--color-surface-2);
+    border-color: rgba(255,255,255,0.1);
+  }
+}
+
+.debtor-item-compact__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-emerald), #047857);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+  color: #fff;
+}
+
+/* ============================================================
+   PART 3 — Demo button on auth screens
+   ============================================================ */
+
+.demo-access-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  width: 100%;
+  padding: 11px 20px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+  font-family: 'Inter', sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.demo-access-btn:hover:not(:disabled) {
+  background: var(--color-surface-2);
+  border-color: rgba(255,255,255,0.12);
+  color: var(--color-text-primary);
+}
+
+.demo-access-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.demo-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 5px;
+  border-radius: 3px;
+  background: var(--color-amber-glow);
+  color: var(--color-amber-light);
+  border: 1px solid rgba(245,158,11,0.25);
+  line-height: 1;
+}
+
+/* ============================================================
+   PART 5 — Animations (restrained, reduced-motion aware)
+   ============================================================ */
+
+/* Landing page: hero entrance */
+.anim-fade-up {
+  animation: animFadeUp 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.anim-fade-up-delay-1 { animation-delay: 60ms; }
+.anim-fade-up-delay-2 { animation-delay: 120ms; }
+.anim-fade-up-delay-3 { animation-delay: 180ms; }
+.anim-fade-up-delay-4 { animation-delay: 240ms; }
+
+@keyframes animFadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Feature cards: scroll-triggered via JS-added class */
+.anim-card-reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 300ms cubic-bezier(0.22,1,0.36,1), transform 300ms cubic-bezier(0.22,1,0.36,1);
+}
+.anim-card-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Page transition wrapper */
+.page-enter {
+  animation: pageEnter 250ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Button micro-interaction: already handled by .btn:active { transform: scale(0.97); }
+   — using the existing rule, no duplicate needed */
+
+/* Follow-up / debtor list hover (tablet/desktop) */
+@media (min-width: 768px) {
+  .debtor-item {
+    transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast);
+  }
+  .debtor-item:hover {
+    transform: translateX(2px);
+    border-color: rgba(255,255,255,0.12);
+    background: var(--color-surface-3);
+  }
+}
+
+/* Save success state: brief emerald flash on the save button */
+.btn--save-success {
+  background: linear-gradient(135deg, var(--color-emerald), #059669) !important;
+  color: #fff !important;
+}

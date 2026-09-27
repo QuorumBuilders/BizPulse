@@ -30,10 +30,6 @@ import type {
 
 export type { DashboardMetrics };
 
-// ---------------------------------------------------------------------------
-// Credit sales helpers
-// ---------------------------------------------------------------------------
-
 /**
  * Sum of all credit given on a specific date.
  * Used to derive total_sold for a day.
@@ -57,11 +53,6 @@ export function totalSalesForDay(
 ): number {
   return (tally?.cash_sales ?? 0) + creditSales;
 }
-
-// ---------------------------------------------------------------------------
-// Outstanding / repayment helpers
-// ---------------------------------------------------------------------------
-
 /**
  * How much of a single CreditRecord is still owed.
  * Returns 0 if fully repaid; never negative.
@@ -116,11 +107,6 @@ export function daysOverdue(credit: CreditRecord, today: string): number {
   const diff = now.getTime() - due.getTime();
   return diff > 0 ? Math.floor(diff / (1000 * 60 * 60 * 24)) : 0;
 }
-
-// ---------------------------------------------------------------------------
-// Period-level aggregates
-// ---------------------------------------------------------------------------
-
 /**
  * Revenue for a set of tallies and their matching credit records.
  * Revenue = sum of (cash_sales + credit_sales) for each day in period.
@@ -187,11 +173,6 @@ export function totalOutstandingDebt(
 ): number {
   return creditRecords.reduce((sum, c) => sum + outstanding(c, repayments), 0);
 }
-
-// ---------------------------------------------------------------------------
-// Follow-up list
-// ---------------------------------------------------------------------------
-
 /**
  * Build the ranked follow-up list: customers ordered by how overdue they are,
  * then by total outstanding balance (highest first) for tied overdue status.
@@ -213,7 +194,6 @@ export function buildDebtorSummaries(
         repayments
       );
 
-      // Only include customers who actually owe something
       if (totalOutstanding <= 0) return null;
 
       const overdueCredits = customerCredits.filter((c) =>
@@ -221,7 +201,6 @@ export function buildDebtorSummaries(
       );
       const isAnyOverdue = overdueCredits.length > 0;
 
-      // Find the oldest due date for sorting
       const dueDates = customerCredits
         .map((c) => c.due_date)
         .filter((d): d is string => d !== null);
@@ -237,7 +216,6 @@ export function buildDebtorSummaries(
     })
     .filter((s): s is DebtorSummary => s !== null);
 
-  // Sort: overdue first, then by oldest due date ascending, then by balance descending
   return summaries.sort((a, b) => {
     if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1;
     if (a.oldestDueDate && b.oldestDueDate) {
@@ -248,11 +226,6 @@ export function buildDebtorSummaries(
     return b.totalOutstanding - a.totalOutstanding;
   });
 }
-
-// ---------------------------------------------------------------------------
-// Dashboard metrics builder
-// ---------------------------------------------------------------------------
-
 /**
  * Computes all dashboard numbers for a current period and a comparison period.
  * The "comparison period" is the equivalent previous period
@@ -293,11 +266,6 @@ export function buildDashboardMetrics(params: {
     ),
   };
 }
-
-// ---------------------------------------------------------------------------
-// Auto-insight generation
-// ---------------------------------------------------------------------------
-
 export interface Insight {
   type: 'positive' | 'warning' | 'neutral';
   message: string;
@@ -317,7 +285,6 @@ export function generateInsights(metrics: DashboardMetrics): Insight[] {
     ? ((metrics.expenses - metrics.expensesLastPeriod) / metrics.expensesLastPeriod) * 100
     : null;
 
-  // Revenue vs expenses growth comparison
   if (revenueChange !== null && expenseChange !== null) {
     if (revenueChange > 0 && expenseChange > revenueChange) {
       insights.push({
@@ -342,7 +309,6 @@ export function generateInsights(metrics: DashboardMetrics): Insight[] {
     });
   }
 
-  // Cash vs outstanding debt
   if (metrics.outstandingDebt > metrics.cashAtHand * 0.5) {
     insights.push({
       type: 'warning',
@@ -350,7 +316,6 @@ export function generateInsights(metrics: DashboardMetrics): Insight[] {
     });
   }
 
-  // Profitable business result
   if (metrics.businessResult > 0) {
     insights.push({
       type: 'positive',
@@ -372,11 +337,6 @@ export function generateInsights(metrics: DashboardMetrics): Insight[] {
 
   return insights;
 }
-
-// ---------------------------------------------------------------------------
-// Formatting helpers (UI-facing, but pure — no I/O)
-// ---------------------------------------------------------------------------
-
 /**
  * Format a naira amount for display, e.g. 1500000 → "1,500,000"
  */
@@ -389,6 +349,28 @@ export function formatAmount(amount: number): string {
  */
 export function formatNaira(amount: number): string {
   return `₦${formatAmount(amount)}`;
+}
+
+/**
+ * Format a naira amount in compact notation for mobile metric cards.
+ * Examples: 850000 → "₦850K", 20000000 → "₦20M", 1500000 → "₦1.5M"
+ * Only abbreviates when the value is ≥ 10,000; below that, returns full format.
+ * The full unabbreviated value remains available via formatNaira().
+ */
+export function formatNairaCompact(amount: number): string {
+  const abs = Math.abs(amount);
+  const sign = amount < 0 ? '-' : '';
+  if (abs < 10_000) {
+    return `${sign}₦${new Intl.NumberFormat('en-NG').format(Math.round(abs))}`;
+  }
+  // Intl compact notation — 'en-NG' locale may not support compact well on all
+  // runtimes, so we target 'en' and prepend ₦ manually.
+  const formatted = new Intl.NumberFormat('en', {
+    notation: 'compact',
+    compactDisplay: 'short',
+    maximumFractionDigits: 1,
+  }).format(abs);
+  return `${sign}₦${formatted}`;
 }
 
 /**
