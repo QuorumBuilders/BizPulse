@@ -452,6 +452,12 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
           </div>
         )}
 
+        {/* TALLY WORKSPACE — 1 col on mobile, 2 col on desktop (≥1024px) */}
+        <div className="tally-workspace-split">
+
+          {/* ── LEFT COLUMN: today summary + entry form ── */}
+          <div className="flex flex-col gap-4">
+
         {/* TODAY'S SAVED SUMMARY (if already logged today) */}
         {todaySummary?.tally && (
           <div className="card card--glow-emerald fade-in">
@@ -713,6 +719,11 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
           </div>
         </div>
 
+          </div>{/* end LEFT COLUMN */}
+
+          {/* ── RIGHT COLUMN: credit log today + mini follow-up ── */}
+          <div className="flex flex-col gap-4">
+
         {/* DEBTORS TODAY (if any credit was given today) */}
         {todaySummary && todaySummary.credits.length > 0 && (
           <div>
@@ -789,6 +800,11 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
             </div>
           </div>
         )}
+
+          </div>{/* end RIGHT COLUMN */}
+
+        </div>{/* end tally-workspace-split */}
+
       </div>
 
       {/* Confirmation overlay */}
