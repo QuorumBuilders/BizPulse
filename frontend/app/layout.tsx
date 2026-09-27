@@ -23,6 +23,8 @@ export const viewport: Viewport = {
   themeColor: '#10b981',
 };
 
+import RouteGuard from '@/ui/RouteGuard';
+
 export default function RootLayout({
   children,
 }: {
@@ -60,8 +62,11 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <RouteGuard>{children}</RouteGuard>
+      </body>
     </html>
   );
 }
+
 

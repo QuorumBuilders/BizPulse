@@ -147,20 +147,9 @@ body {
   background-color: var(--color-bg);
   color: var(--color-text-primary);
   min-height: 100dvh;
-  /* Mobile-first: simulate phone viewport on desktop */
-  max-width: 430px;
-  margin: 0 auto;
+  margin: 0;
   position: relative;
   overflow-x: hidden;
-}
-
-/* Desktop: add a subtle border and shadow to simulate the phone */
-@media (min-width: 480px) {
-  body {
-    border-left: 1px solid var(--color-border);
-    border-right: 1px solid var(--color-border);
-    box-shadow: 0 0 80px rgba(0,0,0,0.8);
-  }
 }
 
 /* --- Typography --- */
@@ -1017,4 +1006,122 @@ input[type="number"] { -moz-appearance: textfield; }
 
 .verify-email-btn:hover { opacity: 0.9; }
 .verify-email-btn:active { transform: scale(0.98); }
+
+/* --- Responsive Navigation & Layout Additions (Mobile, Tablet, Desktop) --- */
+
+@media (min-width: 768px) {
+  .bottom-nav {
+    display: none !important;
+  }
+
+  .page {
+    padding-bottom: 32px;
+  }
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .app-shell {
+    flex-direction: row;
+  }
+}
+
+.app-sidebar {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .app-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 260px;
+    min-width: 260px;
+    background: var(--color-surface);
+    border-right: 1px solid var(--color-border);
+    height: 100dvh;
+    position: sticky;
+    top: 0;
+    z-index: 95;
+    padding: 24px 16px 20px;
+  }
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .app-main {
+    max-width: 1440px;
+  }
+}
+
+/* Forms & Auth: Centered and constrained on wide viewports */
+@media (min-width: 640px) {
+  .page--auth {
+    align-items: center;
+  }
+
+  .page--auth > * {
+    max-width: 440px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+/* Dashboard multi-column layout on Tablet/Desktop */
+.dashboard-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (min-width: 1024px) {
+  .dashboard-metrics-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+}
+
+.dashboard-layout-split {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (min-width: 1024px) {
+  .dashboard-layout-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+}
+
+/* Tally Workspace multi-column on Tablet/Desktop */
+.tally-workspace-split {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (min-width: 1024px) {
+  .tally-workspace-split {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 24px;
+    align-items: start;
+  }
+}
 
