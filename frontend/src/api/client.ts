@@ -82,13 +82,19 @@ async function request<T>(
   // 204 No Content
   if (response.status === 204) return undefined as T;
 
-  return response.json() as Promise<T>;
+  const jsonResult = await response.json();
+
+  // Unwrap { data: T, meta: { ... } } response envelope if present
+  if (jsonResult && typeof jsonResult === 'object' && 'data' in jsonResult && !('access' in jsonResult)) {
+    return jsonResult.data as T;
+  }
+
+  return jsonResult as T;
 }
 
 // ---------------------------------------------------------------------------
 // Auth stubs — @deprecated
 // Use src/api/authApi.ts for all new auth calls.
-// These are kept only for backwards compat with the existing sync engine.
 // ---------------------------------------------------------------------------
 
 export interface SignupPayload {
@@ -104,8 +110,8 @@ export interface TokenPair {
 }
 
 /** @deprecated Use authApi.register() */
-export async function apiSignup(payload: SignupPayload): Promise<{ data: { message: string } }> {
-  return request<{ data: { message: string } }>('POST', '/api/auth/register/', payload);
+export async function apiSignup(payload: SignupPayload): Promise<{ message: string }> {
+  return request<{ message: string }>('POST', '/api/auth/register/', payload);
 }
 
 /** @deprecated Use authApi.login() + authStore.authLogin() */
@@ -126,31 +132,36 @@ export async function apiRefreshToken(refresh: string): Promise<TokenPair> {
 // ---------------------------------------------------------------------------
 
 export interface BusinessPayload {
-  client_id: string;
   name: string;
-  type: string;
   starting_cash: number;
-  language: string;
-  voice_enabled: boolean;
 }
 
-export interface BusinessResponse extends BusinessPayload {
+export interface BusinessResponse {
   id: number;
+  name: string;
+  starting_cash: number;
+  deleted_at: string | null;
+  purge_at: string | null;
 }
 
-/**
- * POST /business/
- * TODO: confirm path and whether it's nested under /accounts/
- */
+export async function apiListBusinesses(): Promise<BusinessResponse[]> {
+  return request<BusinessResponse[]>('GET', '/api/businesses/');
+}
+
 export async function apiCreateBusiness(payload: BusinessPayload): Promise<BusinessResponse> {
-  return request<BusinessResponse>('POST', '/business/', payload);
+  return request<BusinessResponse>('POST', '/api/businesses/', {
+    name: payload.name,
+    starting_cash: payload.starting_cash,
+  });
 }
 
 export async function apiUpdateBusiness(
-  id: number,
-  payload: Partial<BusinessPayload>
+  businessId: number,
+  payload: { name: string }
 ): Promise<BusinessResponse> {
-  return request<BusinessResponse>('PATCH', `/business/${id}/`, payload);
+  return request<BusinessResponse>('PATCH', `/api/businesses/${businessId}/`, {
+    name: payload.name,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -158,24 +169,36 @@ export async function apiUpdateBusiness(
 // ---------------------------------------------------------------------------
 
 export interface CustomerPayload {
-  client_id: string;
   name: string;
   phone: string;
 }
 
-export interface CustomerResponse extends CustomerPayload {
+export interface CustomerResponse {
   id: number;
+  name: string;
+  phone: string;
 }
 
-export async function apiCreateCustomer(payload: CustomerPayload): Promise<CustomerResponse> {
-  return request<CustomerResponse>('POST', '/customers/', payload);
+export async function apiListCustomers(businessId: number): Promise<CustomerResponse[]> {
+  return request<CustomerResponse[]>('GET', `/api/businesses/${businessId}/customers/`);
+}
+
+export async function apiCreateCustomer(
+  businessId: number,
+  payload: CustomerPayload
+): Promise<CustomerResponse> {
+  return request<CustomerResponse>('POST', `/api/businesses/${businessId}/customers/`, {
+    name: payload.name,
+    phone: payload.phone,
+  });
 }
 
 export async function apiUpdateCustomer(
-  id: number,
+  businessId: number,
+  customerId: number,
   payload: Partial<CustomerPayload>
 ): Promise<CustomerResponse> {
-  return request<CustomerResponse>('PATCH', `/customers/${id}/`, payload);
+  return request<CustomerResponse>('PATCH', `/api/businesses/${businessId}/customers/${customerId}/`, payload);
 }
 
 // ---------------------------------------------------------------------------
@@ -183,35 +206,49 @@ export async function apiUpdateCustomer(
 // ---------------------------------------------------------------------------
 
 export interface DailyTallyPayload {
-  client_id: string;
   date: string;
   cash_sales: number;
   expenses: number;
+  note?: string;
+}
+
+export interface DailyTallyResponse {
+  id: number;
+  date: string;
+  cash_sales: string | number;
+  expenses: string | number;
   note: string;
 }
 
-export interface DailyTallyResponse extends DailyTallyPayload {
-  id: number;
-  synced_at: string;
+export async function apiListDailyTallies(
+  businessId: number,
+  params?: { from_date?: string; to_date?: string }
+): Promise<DailyTallyResponse[]> {
+  const search = new URLSearchParams();
+  if (params?.from_date) search.set('from_date', params.from_date);
+  if (params?.to_date) search.set('to_date', params.to_date);
+  const qs = search.toString() ? `?${search.toString()}` : '';
+  return request<DailyTallyResponse[]>('GET', `/api/businesses/${businessId}/daily-tallies/${qs}`);
 }
 
-export async function apiCreateDailyTally(payload: DailyTallyPayload): Promise<DailyTallyResponse> {
-  return request<DailyTallyResponse>('POST', '/entries/', payload);
+export async function apiCreateDailyTally(
+  businessId: number,
+  payload: DailyTallyPayload
+): Promise<DailyTallyResponse> {
+  return request<DailyTallyResponse>('POST', `/api/businesses/${businessId}/daily-tallies/`, {
+    date: payload.date,
+    cash_sales: payload.cash_sales,
+    expenses: payload.expenses,
+    note: payload.note ?? '',
+  });
 }
 
 export async function apiUpdateDailyTally(
-  id: number,
+  businessId: number,
+  tallyId: number,
   payload: Partial<DailyTallyPayload>
 ): Promise<DailyTallyResponse> {
-  return request<DailyTallyResponse>('PATCH', `/entries/${id}/`, payload);
-}
-
-/**
- * Pull all entries from the server (full sync).
- * TODO: confirm pagination shape with backend teammate
- */
-export async function apiListDailyTallies(): Promise<DailyTallyResponse[]> {
-  return request<DailyTallyResponse[]>('GET', '/entries/');
+  return request<DailyTallyResponse>('PATCH', `/api/businesses/${businessId}/daily-tallies/${tallyId}/`, payload);
 }
 
 // ---------------------------------------------------------------------------
@@ -219,26 +256,42 @@ export async function apiListDailyTallies(): Promise<DailyTallyResponse[]> {
 // ---------------------------------------------------------------------------
 
 export interface CreditRecordPayload {
-  client_id: string;
   customer: number; // server customer id
   amount: number;
+  issued_date: string;
+  due_date?: string | null;
+}
+
+export interface CreditRecordResponse {
+  id: number;
+  customer: number;
+  amount: string | number;
   issued_date: string;
   due_date: string | null;
 }
 
-export interface CreditRecordResponse extends CreditRecordPayload {
-  id: number;
+export async function apiListCreditRecords(businessId: number): Promise<CreditRecordResponse[]> {
+  return request<CreditRecordResponse[]>('GET', `/api/businesses/${businessId}/credits/`);
 }
 
-export async function apiCreateCreditRecord(payload: CreditRecordPayload): Promise<CreditRecordResponse> {
-  return request<CreditRecordResponse>('POST', '/credit-records/', payload);
+export async function apiCreateCreditRecord(
+  businessId: number,
+  payload: CreditRecordPayload
+): Promise<CreditRecordResponse> {
+  return request<CreditRecordResponse>('POST', `/api/businesses/${businessId}/credits/`, {
+    customer: payload.customer,
+    amount: payload.amount,
+    issued_date: payload.issued_date,
+    due_date: payload.due_date ?? null,
+  });
 }
 
 export async function apiUpdateCreditRecord(
-  id: number,
-  payload: Partial<CreditRecordPayload>
+  businessId: number,
+  creditId: number,
+  payload: Partial<Omit<CreditRecordPayload, 'customer'>>
 ): Promise<CreditRecordResponse> {
-  return request<CreditRecordResponse>('PATCH', `/credit-records/${id}/`, payload);
+  return request<CreditRecordResponse>('PATCH', `/api/businesses/${businessId}/credits/${creditId}/`, payload);
 }
 
 // ---------------------------------------------------------------------------
@@ -246,18 +299,33 @@ export async function apiUpdateCreditRecord(
 // ---------------------------------------------------------------------------
 
 export interface RepaymentPayload {
-  client_id: string;
-  credit_record: number; // server credit record id
   amount: number;
   paid_date: string;
 }
 
-export interface RepaymentResponse extends RepaymentPayload {
+export interface RepaymentResponse {
   id: number;
+  credit_record: number;
+  amount: string | number;
+  paid_date: string;
 }
 
-export async function apiCreateRepayment(payload: RepaymentPayload): Promise<RepaymentResponse> {
-  return request<RepaymentResponse>('POST', '/repayments/', payload);
+export async function apiListRepayments(
+  businessId: number,
+  creditId: number
+): Promise<RepaymentResponse[]> {
+  return request<RepaymentResponse[]>('GET', `/api/businesses/${businessId}/credits/${creditId}/repayments/`);
+}
+
+export async function apiCreateRepayment(
+  businessId: number,
+  creditId: number,
+  payload: RepaymentPayload
+): Promise<RepaymentResponse> {
+  return request<RepaymentResponse>('POST', `/api/businesses/${businessId}/credits/${creditId}/repayments/`, {
+    amount: payload.amount,
+    paid_date: payload.paid_date,
+  });
 }
 
 // ---------------------------------------------------------------------------
