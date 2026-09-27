@@ -86,18 +86,24 @@ async function pushEntry(entry: OutboxEntry): Promise<void> {
   const { entity, client_id, operation } = entry;
 
   try {
+    // If not a business entity, ensure we have an active synced business on the server
+    const currentBiz = await db.businesses.toCollection().first();
+    if (entity !== 'business' && !currentBiz?.id) {
+      // Business hasn't synced yet — re-queue for next cycle
+      if (entry.id !== undefined) {
+        await recordAttempt(entry.id, false);
+      }
+      return;
+    }
+
     switch (entity) {
       case 'business': {
         const biz = await db.businesses.where('client_id').equals(client_id).first();
         if (!biz) return;
         if (operation === 'create') {
           const res = await apiCreateBusiness({
-            client_id: biz.client_id,
             name: biz.name,
-            type: biz.type,
             starting_cash: biz.starting_cash,
-            language: biz.language,
-            voice_enabled: biz.voice_enabled,
           });
           await db.businesses.where('client_id').equals(client_id).modify({
             id: res.id,
@@ -107,10 +113,6 @@ async function pushEntry(entry: OutboxEntry): Promise<void> {
           if (!biz.id) return; // can't update without server id yet
           await apiUpdateBusiness(biz.id, {
             name: biz.name,
-            type: biz.type,
-            starting_cash: biz.starting_cash,
-            language: biz.language,
-            voice_enabled: biz.voice_enabled,
           });
           await db.businesses.where('client_id').equals(client_id).modify({ synced: true });
         }
@@ -119,10 +121,9 @@ async function pushEntry(entry: OutboxEntry): Promise<void> {
 
       case 'customer': {
         const cust = await db.customers.where('client_id').equals(client_id).first();
-        if (!cust) return;
+        if (!cust || !currentBiz?.id) return;
         if (operation === 'create') {
-          const res = await apiCreateCustomer({
-            client_id: cust.client_id,
+          const res = await apiCreateCustomer(currentBiz.id, {
             name: cust.name,
             phone: cust.phone,
           });
@@ -132,7 +133,7 @@ async function pushEntry(entry: OutboxEntry): Promise<void> {
           });
         } else {
           if (!cust.id) return;
-          await apiUpdateCustomer(cust.id, { name: cust.name, phone: cust.phone });
+          await apiUpdateCustomer(currentBiz.id, cust.id, { name: cust.name, phone: cust.phone });
           await db.customers.where('client_id').equals(client_id).modify({ synced: true });
         }
         break;
@@ -140,10 +141,9 @@ async function pushEntry(entry: OutboxEntry): Promise<void> {
 
       case 'daily_tally': {
         const tally = await db.daily_tallies.where('client_id').equals(client_id).first();
-        if (!tally) return;
+        if (!tally || !currentBiz?.id) return;
         if (operation === 'create') {
-          const res = await apiCreateDailyTally({
-            client_id: tally.client_id,
+          const res = await apiCreateDailyTally(currentBiz.id, {
             date: tally.date,
             cash_sales: tally.cash_sales,
             expenses: tally.expenses,
@@ -155,7 +155,7 @@ async function pushEntry(entry: OutboxEntry): Promise<void> {
           });
         } else {
           if (!tally.id) return;
-          await apiUpdateDailyTally(tally.id, {
+          await apiUpdateDailyTally(currentBiz.id, tally.id, {
             cash_sales: tally.cash_sales,
             expenses: tally.expenses,
             note: tally.note,
@@ -167,7 +167,7 @@ async function pushEntry(entry: OutboxEntry): Promise<void> {
 
       case 'credit_record': {
         const cr = await db.credit_records.where('client_id').equals(client_id).first();
-        if (!cr) return;
+        if (!cr || !currentBiz?.id) return;
         // Need the server customer id to post this record
         const customer = await db.customers
           .where('client_id')
@@ -175,12 +175,13 @@ async function pushEntry(entry: OutboxEntry): Promise<void> {
           .first();
         if (!customer?.id) {
           // Customer hasn't synced yet — re-queue for next cycle
-          await recordAttempt(entry.id!, false);
+          if (entry.id !== undefined) {
+            await recordAttempt(entry.id, false);
+          }
           return;
         }
         if (operation === 'create') {
-          const res = await apiCreateCreditRecord({
-            client_id: cr.client_id,
+          const res = await apiCreateCreditRecord(currentBiz.id, {
             customer: customer.id,
             amount: cr.amount,
             issued_date: cr.issued_date,
@@ -192,7 +193,7 @@ async function pushEntry(entry: OutboxEntry): Promise<void> {
           });
         } else {
           if (!cr.id) return;
-          await apiUpdateCreditRecord(cr.id, {
+          await apiUpdateCreditRecord(currentBiz.id, cr.id, {
             amount: cr.amount,
             due_date: cr.due_date,
           });
@@ -203,19 +204,19 @@ async function pushEntry(entry: OutboxEntry): Promise<void> {
 
       case 'repayment': {
         const rep = await db.repayments.where('client_id').equals(client_id).first();
-        if (!rep) return;
+        if (!rep || !currentBiz?.id) return;
         const cr = await db.credit_records
           .where('client_id')
           .equals(rep.credit_record_client_id)
           .first();
         if (!cr?.id) {
           // Credit record hasn't synced yet
-          await recordAttempt(entry.id!, false);
+          if (entry.id !== undefined) {
+            await recordAttempt(entry.id, false);
+          }
           return;
         }
-        const res = await apiCreateRepayment({
-          client_id: rep.client_id,
-          credit_record: cr.id,
+        const res = await apiCreateRepayment(currentBiz.id, cr.id, {
           amount: rep.amount,
           paid_date: rep.paid_date,
         });
