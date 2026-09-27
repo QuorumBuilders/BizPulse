@@ -1,14 +1,25 @@
-import Link from 'next/link';
+'use client';
 
-export const metadata = {
-  title: 'BizPulse — Financial Clarity for Micro-Traders',
-  description: 'Digital daily tally, debtor follow-ups, and automated monthly profit numbers for Nigerian businesses. Works 100% offline.',
-};
+import Link from 'next/link';
+import { useTheme } from '@/state/useTheme';
 
 export default function LandingPage() {
+  const { theme, toggle } = useTheme();
+
   return (
-    <div className="page fade-in" style={{ padding: '0 20px 40px', minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
-      {/* Top Navbar */}
+    <div
+      className="page fade-in"
+      style={{
+        padding: '0 20px 48px',
+        minHeight: '100dvh',
+        display: 'flex',
+        flexDirection: 'column',
+        maxWidth: 1100,
+        margin: '0 auto',
+        width: '100%',
+      }}
+    >
+      {/* ── Top Navbar ── */}
       <header
         style={{
           display: 'flex',
@@ -21,17 +32,46 @@ export default function LandingPage() {
           <div className="auth-logo__icon" style={{ width: 36, height: 36, fontSize: '1.25rem' }}>📊</div>
           <span className="auth-logo__name" style={{ fontSize: '1.25rem' }}>BizPulse</span>
         </div>
-        <Link
-          href="/login"
-          className="btn btn--secondary btn--sm"
-          style={{ padding: '8px 16px', fontSize: '0.875rem', textDecoration: 'none' }}
-        >
-          Sign in
-        </Link>
+
+        {/* Nav actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Theme toggle */}
+          <button
+            id="landing-theme-toggle"
+            type="button"
+            onClick={toggle}
+            aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+            title={theme === 'light' ? 'Dark mode' : 'Light mode'}
+            style={{
+              background: 'var(--color-surface-2)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-full)',
+              width: 36,
+              height: 36,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              lineHeight: 1,
+              transition: 'background 0.2s',
+            }}
+          >
+            {theme === 'light' ? '🌙' : '☀️'}
+          </button>
+
+          <Link
+            href="/login"
+            className="btn btn--secondary btn--sm"
+            style={{ padding: '8px 16px', fontSize: '0.875rem', textDecoration: 'none' }}
+          >
+            Sign in
+          </Link>
+        </div>
       </header>
 
-      {/* Hero Section */}
-      <section style={{ textAlign: 'center', marginTop: 16, marginBottom: 32 }}>
+      {/* ── Hero Section ── */}
+      <section style={{ textAlign: 'center', marginTop: 16, marginBottom: 40 }}>
         <div
           style={{
             display: 'inline-flex',
@@ -44,7 +84,7 @@ export default function LandingPage() {
             color: 'var(--color-emerald-light)',
             fontSize: '0.75rem',
             fontWeight: 600,
-            textTransform: 'uppercase',
+            textTransform: 'uppercase' as const,
             letterSpacing: '0.05em',
             marginBottom: 16,
           }}
@@ -73,8 +113,8 @@ export default function LandingPage() {
           style={{
             fontSize: '0.95rem',
             lineHeight: 1.6,
-            maxWidth: 380,
-            margin: '0 auto 24px',
+            maxWidth: 420,
+            margin: '0 auto 28px',
           }}
         >
           Your daily sales, debtor follow-ups, and true cash position at closing time.
@@ -103,94 +143,67 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 4 Feature Highlights */}
-      <section style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 32 }}>
-        <div
-          className="card"
-          style={{
-            padding: '16px 18px',
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 14,
-            background: 'var(--color-surface-2)',
-          }}
-        >
-          <div style={{ fontSize: '1.5rem', lineHeight: 1 }}>⏱️</div>
-          <div>
-            <h3 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: 2 }}>
-              Daily entry in seconds
-            </h3>
-            <p className="text-xs text-muted" style={{ lineHeight: 1.45 }}>
-              Type cash sales and credit with zero clutter. Complete your tally in under 30 seconds.
-            </p>
+      {/* ── Feature Highlights: responsive grid ── */}
+      <section
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: 16,
+          marginBottom: 40,
+        }}
+      >
+        {[
+          {
+            icon: '⏱️',
+            title: 'Daily entry in seconds',
+            desc: 'Type cash sales and credit with zero clutter. Complete your tally in under 30 seconds.',
+          },
+          {
+            icon: '💬',
+            title: 'Debtor follow-up reminders',
+            desc: 'Never forget who owes you. One tap sends polite WhatsApp reminder messages to customers.',
+          },
+          {
+            icon: '📈',
+            title: 'Automatic monthly numbers',
+            desc: 'See net profit, total revenue, and cash in hand without crunching paper notes.',
+          },
+          {
+            icon: '📶',
+            title: 'Works offline, installs like an app',
+            desc: 'No data? No problem. Record tallies even with zero signal; syncs securely when reconnected.',
+          },
+        ].map(({ icon, title, desc }) => (
+          <div
+            key={title}
+            className="card"
+            style={{
+              padding: '20px 20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+              background: 'var(--color-surface-2)',
+              transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)';
+              (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 24px rgba(0,0,0,0.25)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+              (e.currentTarget as HTMLElement).style.boxShadow = '';
+            }}
+          >
+            <div style={{ fontSize: '1.75rem', lineHeight: 1 }}>{icon}</div>
+            <div>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: 4 }}>{title}</h3>
+              <p className="text-xs text-muted" style={{ lineHeight: 1.5 }}>{desc}</p>
+            </div>
           </div>
-        </div>
-
-        <div
-          className="card"
-          style={{
-            padding: '16px 18px',
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 14,
-            background: 'var(--color-surface-2)',
-          }}
-        >
-          <div style={{ fontSize: '1.5rem', lineHeight: 1 }}>💬</div>
-          <div>
-            <h3 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: 2 }}>
-              Debtor follow-up reminders
-            </h3>
-            <p className="text-xs text-muted" style={{ lineHeight: 1.45 }}>
-              Never forget who owes you. One tap sends polite WhatsApp reminder messages to customers.
-            </p>
-          </div>
-        </div>
-
-        <div
-          className="card"
-          style={{
-            padding: '16px 18px',
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 14,
-            background: 'var(--color-surface-2)',
-          }}
-        >
-          <div style={{ fontSize: '1.5rem', lineHeight: 1 }}>📈</div>
-          <div>
-            <h3 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: 2 }}>
-              Automatic monthly numbers
-            </h3>
-            <p className="text-xs text-muted" style={{ lineHeight: 1.45 }}>
-              See net profit, total revenue, and cash in hand without crunching paper notes.
-            </p>
-          </div>
-        </div>
-
-        <div
-          className="card"
-          style={{
-            padding: '16px 18px',
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 14,
-            background: 'var(--color-surface-2)',
-          }}
-        >
-          <div style={{ fontSize: '1.5rem', lineHeight: 1 }}>📶</div>
-          <div>
-            <h3 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: 2 }}>
-              Works offline, installs like an app
-            </h3>
-            <p className="text-xs text-muted" style={{ lineHeight: 1.45 }}>
-              No data? No problem. Record tallies even with zero signal; syncs securely when reconnected.
-            </p>
-          </div>
-        </div>
+        ))}
       </section>
 
-      {/* Footer / Login Link */}
+      {/* ── Footer / Login Link ── */}
       <footer style={{ marginTop: 'auto', textAlign: 'center', paddingTop: 16 }}>
         <p className="text-xs text-muted">
           Already have an account?{' '}
