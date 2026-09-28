@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+
+# Allow landing page and public routes
+Allow: /
+
+# Disallow app-internal routes that require auth
+Disallow: /dashboard
+Disallow: /app
+Disallow: /followup
+Disallow: /export
+Disallow: /onboarding
+Disallow: /reset-password
+Disallow: /reset_password
+Disallow: /verify-email
+Disallow: /verify_email
+Disallow: /verify-email-pending
+
+Sitemap: https://bizpulse.pythonanywhere.com/sitemap.xml
