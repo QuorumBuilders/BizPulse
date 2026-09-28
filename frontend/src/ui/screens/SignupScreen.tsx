@@ -3,6 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { AuthApiError, resendVerificationEmail } from '@/api/authApi';
 import { formatMoneyInput, parseMoneyInput } from '@/domain/derivations';
+import VerifyEmailPendingScreen from '@/ui/screens/VerifyEmailPendingScreen';
 
 interface SignupPayload {
   displayName: string;
@@ -33,7 +34,6 @@ const BUSINESS_TYPES = [
 ];
 
 export default function SignupScreen({ onSignup, onGoToLogin }: Props) {
-  // Step 1: account, Step 2: business (onboarding merged in)
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     displayName: '',
@@ -48,7 +48,6 @@ export default function SignupScreen({ onSignup, onGoToLogin }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState('');
   
-  // Verification pending state after successful registration
   const [isRegistered, setIsRegistered] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [resendStatus, setResendStatus] = useState<string | null>(null);
@@ -112,7 +111,6 @@ export default function SignupScreen({ onSignup, onGoToLogin }: Props) {
           else fieldErrors[key] = msg;
         }
         setErrors(fieldErrors);
-        // If there are step 1 errors, jump back to step 1
         if (fieldErrors.email || fieldErrors.displayName || fieldErrors.password || fieldErrors.passwordConfirmation) {
           setStep(1);
         }
@@ -143,68 +141,21 @@ export default function SignupScreen({ onSignup, onGoToLogin }: Props) {
     }
   };
 
-  // If successfully registered, show verification pending screen
   if (isRegistered) {
-    return (
-      <div className="page page--auth fade-in">
-        <div className="auth-logo">
-          <div className="auth-logo__icon">✉️</div>
-          <span className="auth-logo__name">BizPulse</span>
-        </div>
-
-        <h1 style={{ marginBottom: 8 }}>Check your email</h1>
-        <p className="text-muted text-sm" style={{ marginBottom: 24, lineHeight: 1.6 }}>
-          We sent an activation link to <strong style={{ color: 'var(--color-text-primary)' }}>{form.email}</strong>.
-          Please click the link in your email to activate your account before signing in.
-        </p>
-
-        <div className="card" style={{ marginBottom: 24, background: 'rgba(16,185,129,0.06)', borderColor: 'rgba(16,185,129,0.3)' }}>
-          <p className="text-sm font-medium" style={{ color: 'var(--color-emerald)', marginBottom: 4 }}>
-            ✓ Account registered successfully
-          </p>
-          <p className="text-xs text-muted">
-            Your business details and offline tallies are safely saved on this device.
-          </p>
-        </div>
-
-        {resendStatus && (
-          <div className="card" style={{ marginBottom: 20, background: 'var(--color-surface-overlay)' }}>
-            <p className="text-xs text-muted">{resendStatus}</p>
-          </div>
-        )}
-
-        <div className="flex flex-col gap-3">
-          <button
-            id="go-to-login-after-signup-btn"
-            type="button"
-            className="btn btn--primary"
-            onClick={onGoToLogin}
-          >
-            Go to Sign in →
-          </button>
-          <button
-            id="resend-verification-btn"
-            type="button"
-            className="btn btn--secondary"
-            onClick={handleResendVerification}
-            disabled={isResending}
-          >
-            {isResending ? 'Resending email…' : 'Didn’t receive it? Resend link'}
-          </button>
-        </div>
-      </div>
-    );
+    return <VerifyEmailPendingScreen email={form.email} onGoToLogin={onGoToLogin} />;
   }
 
   return (
     <div className="page page--auth fade-in">
-      {/* Logo */}
       <div className="auth-logo">
-        <div className="auth-logo__icon">📊</div>
+        <div className="auth-logo__icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+        </div>
         <span className="auth-logo__name">BizPulse</span>
       </div>
 
-      {/* Step indicator */}
       <div className="flex gap-2 mb-6">
         {[1, 2].map((s: number) => (
           <div

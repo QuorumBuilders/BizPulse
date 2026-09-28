@@ -49,7 +49,6 @@ export default function VerifyEmailScreen() {
   return (
     <div className="verify-email-page">
       <div className="verify-email-card">
-        {/* Logo / brand */}
         <div className="verify-email-brand">
           <span className="verify-email-logo">BP</span>
           <span className="verify-email-brand-name">BizPulse</span>

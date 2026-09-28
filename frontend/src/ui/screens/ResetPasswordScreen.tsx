@@ -72,7 +72,6 @@ export default function ResetPasswordScreen() {
 
   return (
     <div className="page page--auth fade-in">
-      {/* Brand logo */}
       <div className="auth-logo">
         <div className="auth-logo__icon">🔑</div>
         <span className="auth-logo__name">BizPulse</span>

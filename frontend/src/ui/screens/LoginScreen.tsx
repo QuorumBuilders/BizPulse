@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { AuthApiError, resendVerificationEmail } from '@/api/authApi';
 
@@ -19,6 +19,8 @@ export default function LoginScreen({ onLogin, onGoToSignup, onGoToForgotPasswor
   const [isUnverified, setIsUnverified] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [resendStatus, setResendStatus] = useState<string | null>(null);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
+  const [demoError, setDemoError] = useState('');
 
   const validate = () => {
     const e: typeof errors = {};
@@ -63,6 +65,29 @@ export default function LoginScreen({ onLogin, onGoToSignup, onGoToForgotPasswor
     }
   }, [email, password, onLogin]);
 
+  /** Demo login — uses the exact same login() call as real users. */
+  const handleDemoLogin = useCallback(async () => {
+    setIsDemoLoading(true);
+    setDemoError('');
+    try {
+      await onLogin('addergranzl@example.com', 'DemoPassword123!');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Demo login failed. Please try again.';
+      setDemoError(msg);
+      setIsDemoLoading(false);
+    }
+  }, [onLogin]);
+
+  // Auto-fill/auto-login if navigated from "View live demo" on landing page
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('demo') === '1') {
+        handleDemoLogin();
+      }
+    }
+  }, [handleDemoLogin]);
+
   const handleResend = async () => {
     if (!email.trim() || isResending) return;
     setIsResending(true);
@@ -83,9 +108,12 @@ export default function LoginScreen({ onLogin, onGoToSignup, onGoToForgotPasswor
 
   return (
     <div className="page page--auth fade-in">
-      {/* Logo */}
       <div className="auth-logo">
-        <div className="auth-logo__icon">📊</div>
+        <div className="auth-logo__icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+        </div>
         <span className="auth-logo__name">BizPulse</span>
       </div>
 
@@ -191,7 +219,7 @@ export default function LoginScreen({ onLogin, onGoToSignup, onGoToForgotPasswor
           type="button"
           className="btn btn--primary mt-2"
           onClick={handleLogin}
-          disabled={isLoading}
+          disabled={isLoading || isDemoLoading}
         >
           {isLoading ? (
             <><span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Signing in…</>
@@ -199,6 +227,36 @@ export default function LoginScreen({ onLogin, onGoToSignup, onGoToForgotPasswor
             'Sign in →'
           )}
         </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0' }}>
+          <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
+          <span className="text-xs text-muted" style={{ whiteSpace: 'nowrap' }}>or</span>
+          <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
+        </div>
+
+        <button
+          id="demo-login-btn"
+          type="button"
+          className="demo-access-btn"
+          onClick={handleDemoLogin}
+          disabled={isLoading || isDemoLoading}
+          title="Log in with the pre-seeded demo account to explore the dashboard"
+        >
+          {isDemoLoading ? (
+            <><span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> Opening demo…</>
+          ) : (
+            <>
+              <span className="demo-badge">Demo</span>
+              Try Demo Account
+            </>
+          )}
+        </button>
+
+        {demoError && (
+          <p className="text-xs" style={{ color: 'var(--color-rose)', textAlign: 'center' }}>
+            {demoError}
+          </p>
+        )}
       </div>
 
       <div className="text-center mt-6">
@@ -216,7 +274,6 @@ export default function LoginScreen({ onLogin, onGoToSignup, onGoToForgotPasswor
         </p>
       </div>
 
-      {/* Demo hint */}
       <div className="pwa-banner mt-6" style={{ marginTop: 'auto', paddingTop: 24 }}>
         <p className="text-xs text-muted" style={{ lineHeight: 1.6 }}>
           💡 <strong style={{ color: 'var(--color-text-primary)' }}>Works offline.</strong>{' '}

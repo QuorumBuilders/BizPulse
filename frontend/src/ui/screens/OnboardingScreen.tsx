@@ -8,10 +8,6 @@ interface Props {
   onComplete: (patch: Partial<Omit<Business, 'id' | 'client_id' | 'synced' | 'updated_at'>>) => Promise<void>;
 }
 
-/**
- * OnboardingScreen is shown when the user is authenticated but their
- * Business record doesn't exist in local IndexedDB yet.
- */
 export default function OnboardingScreen({ onComplete }: Props) {
   const [businessName, setBusinessName] = useState('');
   const [businessType, setBusinessType] = useState('Provisions / Grocery');
@@ -37,7 +33,11 @@ export default function OnboardingScreen({ onComplete }: Props) {
   return (
     <div className="page page--auth fade-in">
       <div className="auth-logo">
-        <div className="auth-logo__icon">📊</div>
+        <div className="auth-logo__icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+        </div>
         <span className="auth-logo__name">BizPulse</span>
       </div>
 
