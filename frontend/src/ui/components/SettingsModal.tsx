@@ -32,7 +32,6 @@ export default function SettingsModal({
   const [isSaving, setIsSaving] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  // Change Password state
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -41,7 +40,6 @@ export default function SettingsModal({
   const [pwdError, setPwdError] = useState<string | null>(null);
   const [pwdSuccess, setPwdSuccess] = useState<string | null>(null);
 
-  // Change Email state
   const [showChangeEmail, setShowChangeEmail] = useState(false);
   const [currentPasswordForEmail, setCurrentPasswordForEmail] = useState('');
   const [newEmail, setNewEmail] = useState('');
@@ -193,7 +191,6 @@ export default function SettingsModal({
         onClick={(e) => e.stopPropagation()}
         style={{ maxHeight: '90vh', overflowY: 'auto' }}
       >
-        {/* Header */}
         <div className="flex justify-between items-center" style={{ marginBottom: 20 }}>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Settings &amp; Preferences</h2>
           <button
@@ -206,7 +203,6 @@ export default function SettingsModal({
           </button>
         </div>
 
-        {/* Business Profile Summary */}
         <div className="card" style={{ marginBottom: 16, background: 'var(--color-surface-overlay)' }}>
           <div className="text-xs text-muted font-semibold uppercase tracking-wider mb-2">
             Business Profile
@@ -221,17 +217,21 @@ export default function SettingsModal({
           </div>
         </div>
 
-        {/* Feature Toggles */}
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="text-xs text-muted font-semibold uppercase tracking-wider mb-3">
             Input Preferences
           </div>
 
-          {/* Voice Input Toggle */}
           <div className="flex justify-between items-center" style={{ padding: '8px 0' }}>
             <div>
               <div className="font-medium text-sm flex items-center gap-2">
-                <span>🎙️ Voice Tally Entry</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                </svg>
+                <span>Voice Tally Entry</span>
                 <span className="badge badge--partial" style={{ fontSize: '0.65rem' }}>Optional</span>
               </div>
               <p className="text-xs text-muted" style={{ marginTop: 2, maxWidth: 240 }}>
@@ -251,10 +251,16 @@ export default function SettingsModal({
 
           <div className="divider" style={{ margin: '12px 0' }} />
 
-          {/* Language Preference */}
           <div className="flex justify-between items-center" style={{ padding: '8px 0' }}>
             <div>
-              <div className="font-medium text-sm">🌐 Language / Éde</div>
+              <div className="font-medium text-sm flex items-center gap-2">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="2" y1="12" x2="22" y2="12" />
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                </svg>
+                <span>Language / Éde</span>
+              </div>
               <p className="text-xs text-muted" style={{ marginTop: 2 }}>
                 Display language and market terms
               </p>
@@ -275,11 +281,13 @@ export default function SettingsModal({
 
           <div className="divider" style={{ margin: '12px 0' }} />
 
-          {/* Theme Toggle */}
           <div className="flex justify-between items-center" style={{ padding: '8px 0' }}>
             <div>
               <div className="font-medium text-sm flex items-center gap-2">
-                <span>{theme === 'light' ? '☀️' : '🌙'} Appearance</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
+                <span>Appearance</span>
               </div>
               <p className="text-xs text-muted" style={{ marginTop: 2 }}>
                 {theme === 'light' ? 'Light mode active' : 'Dark mode active'}
@@ -293,12 +301,11 @@ export default function SettingsModal({
               aria-label="Toggle colour theme"
               style={{ minWidth: 68, padding: '6px 12px', fontSize: '0.8125rem' }}
             >
-              {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
+              {theme === 'light' ? 'Dark mode' : 'Light mode'}
             </button>
           </div>
         </div>
 
-        {/* WhatsApp Bot Touchpoint */}
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="text-xs text-muted font-semibold uppercase tracking-wider mb-2">
             WhatsApp Integration
@@ -306,7 +313,10 @@ export default function SettingsModal({
           <div className="flex justify-between items-start mb-2">
             <div>
               <div className="font-semibold text-sm flex items-center gap-2">
-                <span>💬 WhatsApp Bot Assistant</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                <span>WhatsApp Bot Assistant</span>
                 <span className="badge badge--paid" style={{ fontSize: '0.65rem' }}>Ready</span>
               </div>
               <p className="text-xs text-muted mt-1" style={{ maxWidth: 260 }}>
@@ -337,11 +347,15 @@ export default function SettingsModal({
             className="btn btn--secondary btn--sm w-full"
             style={{ textDecoration: 'none', display: 'flex', justifyContent: 'center', gap: 6 }}
           >
-            <span>📲 Open WhatsApp to Connect</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+            <span>Open WhatsApp to Connect</span>
           </a>
         </div>
 
-        {/* Sync & Offline Status */}
         <div className="card" style={{ marginBottom: 20 }}>
           <div className="text-xs text-muted font-semibold uppercase tracking-wider mb-2">
             Storage &amp; Sync Status
@@ -364,7 +378,6 @@ export default function SettingsModal({
           </div>
         </div>
 
-        {/* Security & Password Section */}
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="flex justify-between items-center" style={{ marginBottom: showChangePassword ? 12 : 0 }}>
             <div className="text-xs text-muted font-semibold uppercase tracking-wider">
@@ -442,7 +455,6 @@ export default function SettingsModal({
           )}
         </div>
 
-        {/* Change Email Section */}
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="flex justify-between items-center" style={{ marginBottom: showChangeEmail ? 12 : 0 }}>
             <div className="text-xs text-muted font-semibold uppercase tracking-wider">
@@ -512,11 +524,14 @@ export default function SettingsModal({
           )}
         </div>
 
-        {/* Logout Section */}
         {showLogoutConfirm ? (
           <div className="card" style={{ borderColor: 'rgba(244,63,94,0.3)', background: 'rgba(244,63,94,0.05)', marginBottom: 8 }}>
-            <p className="text-xs" style={{ marginBottom: 12, lineHeight: 1.4 }}>
-              ⚠️ Are you sure you want to sign out? Your records remain safely stored on this phone.
+            <p className="text-xs" style={{ marginBottom: 12, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--color-rose)', flexShrink: 0 }}>
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              <span>Are you sure you want to sign out? Your records remain safely stored on this phone.</span>
             </p>
             <div className="flex gap-2">
               <button

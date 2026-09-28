@@ -15,15 +15,12 @@ export default function InstallNudge() {
   const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
-    // Check if dismissed previously
     if (typeof window === 'undefined') return;
     if (localStorage.getItem(STORAGE_KEY)) return;
 
-    // Check if running in standalone PWA mode already
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as unknown as { standalone?: boolean }).standalone;
     if (isStandalone) return;
 
-    // Detect iOS
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isAppleDevice = /iphone|ipad|ipod/.test(userAgent);
     setIsIOS(isAppleDevice);
@@ -36,7 +33,6 @@ export default function InstallNudge() {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
 
-    // On iOS or if event didn't fire after 1 second, show nudge banner anyway
     const timer = setTimeout(() => {
       if (!localStorage.getItem(STORAGE_KEY)) {
         setIsVisible(true);

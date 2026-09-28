@@ -16,11 +16,6 @@ import BottomNav, { type Tab } from '@/ui/components/BottomNav';
 import SidebarNav from '@/ui/components/SidebarNav';
 import InstallNudge from '@/ui/components/InstallNudge';
 
-/**
- * Root client component — handles routing and auth state.
- * BizPulse uses a simple state-based router (no Next.js routing needed
- * for a single-page PWA with a bottom nav).
- */
 export interface AppShellProps {
   initialTab?: Tab;
   initialAuthView?: 'login' | 'signup';
@@ -39,15 +34,12 @@ export default function AppShell({
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [authView, setAuthView] = useState<'login' | 'signup'>(initialAuthView);
 
-  // Start sync scheduler once authenticated
   useEffect(() => {
     if (!isAuthenticated) return;
     const stopSync = startSyncScheduler();
     return stopSync;
   }, [isAuthenticated]);
 
-  // Keep URL aligned when user is already authenticated
-  // MUST be before any early returns to satisfy Rules of Hooks
   useEffect(() => {
     if (isAuthenticated && typeof window !== 'undefined') {
       const path = window.location.pathname;
@@ -61,7 +53,11 @@ export default function AppShell({
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ minHeight: '100dvh' }}>
         <div className="flex flex-col items-center gap-4">
-          <div className="auth-logo__icon">📊</div>
+          <div className="auth-logo__icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            </svg>
+          </div>
           <div className="spinner" />
           <p className="text-muted text-sm">Loading BizPulse...</p>
         </div>
@@ -69,7 +65,6 @@ export default function AppShell({
     );
   }
 
-  // Not authenticated — show auth screens
   if (!isAuthenticated) {
     if (authView === 'signup') {
       return (
@@ -93,7 +88,6 @@ export default function AppShell({
     );
   }
 
-  // Authenticated but no business yet — show onboarding
   if (!business) {
     return (
       <OnboardingScreen
@@ -102,7 +96,6 @@ export default function AppShell({
     );
   }
 
-  // Authenticated + has business — show main app
   return (
     <div className="app-shell">
       <SidebarNav
@@ -115,30 +108,7 @@ export default function AppShell({
         business={business}
       />
 
-      <div className="app-main">
-        {/* Quick-access theme toggle — only needed on mobile since sidebar has it on desktop */}
-        <button
-          id="appshell-theme-toggle"
-          type="button"
-          className="btn btn--icon md:hidden"
-          onClick={toggle}
-          aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-          title={theme === 'light' ? 'Dark mode' : 'Light mode'}
-          style={{
-            position: 'fixed',
-            top: 12,
-            right: 16,
-            zIndex: 90,
-            width: 36,
-            height: 36,
-            padding: 0,
-            fontSize: '1rem',
-            lineHeight: 1,
-          }}
-        >
-          {theme === 'light' ? '🌙' : '☀️'}
-        </button>
-
+      <div className="app-main" style={{ height: '100dvh', overflowY: 'auto' }}>
         <InstallNudge />
 
         <main className="flex-1 w-full" style={{ paddingBottom: 'calc(var(--space-xl) + 20px)' }}>
@@ -181,4 +151,3 @@ export default function AppShell({
     </div>
   );
 }
-
