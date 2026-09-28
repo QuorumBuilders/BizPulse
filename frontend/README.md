@@ -1,4 +1,4 @@
-# 📊 BizPulse Frontend
+# BizPulse Frontend
 
 > **Digital daily tally, debtor follow-ups, and automated financial clarity for Nigerian micro-traders — built 100% offline-first.**
 
@@ -6,31 +6,32 @@ BizPulse replaces tedious per-product bookkeeping apps with the macro tally trad
 
 ---
 
-## 📑 Table of Contents
+## Table of Contents
 
-- [Core Philosophy & Research Findings](#-core-philosophy--research-findings)
-- [Key Features](#-key-features)
-- [Tech Stack](#-tech-stack)
-- [Project Directory Structure](#-project-directory-structure)
-- [Prerequisites](#-prerequisites)
-- [Getting Started & Setup](#-getting-started--setup)
+- [Core Philosophy & Research Findings](#core-philosophy--research-findings)
+- [Key Features](#key-features)
+- [Tech Stack](#tech-stack)
+- [Project Directory Structure](#project-directory-structure)
+- [Prerequisites](#prerequisites)
+- [Getting Started & Setup](#getting-started--setup)
   - [1. Clone and Navigate](#1-clone-and-navigate)
   - [2. Install Dependencies](#2-install-dependencies)
   - [3. Configure Environment Variables](#3-configure-environment-variables)
   - [4. Start Development Server](#4-start-development-server)
-- [Available npm Scripts](#-available-npm-scripts)
-- [Offline-First & Sync Architecture](#-offline-first--sync-architecture)
+- [Available npm Scripts](#available-npm-scripts)
+- [Offline-First & Sync Architecture](#offline-first--sync-architecture)
   - [IndexedDB Schema (Dexie.js)](#indexeddb-schema-dexiejs)
   - [Outbox Queue Pattern](#outbox-queue-pattern)
   - [Conflict Resolution & Deduplication](#conflict-resolution--deduplication)
-- [Voice & Pidgin Natural Language Parser](#-voice--pidgin-natural-language-parser)
-- [Testing](#-testing)
-- [Hackathon Demo & Evaluation Guide](#-hackathon-demo--evaluation-guide)
-- [Troubleshooting & FAQ](#-troubleshooting--faq)
+- [Voice & Pidgin Natural Language Parser](#voice--pidgin-natural-language-parser)
+- [Testing](#testing)
+- [Hackathon Demo & Evaluation Guide](#hackathon-demo--evaluation-guide)
+- [Troubleshooting & FAQ](#troubleshooting--faq)
+- [Contributors & Hackathon Team](#contributors--hackathon-team)
 
 ---
 
-## 💡 Core Philosophy & Research Findings
+## Core Philosophy & Research Findings
 
 Validated through direct field research with market stall owners, artisans, and provisions traders across Nigerian markets:
 
@@ -41,40 +42,40 @@ Validated through direct field research with market stall owners, artisans, and 
 
 ---
 
-## ⚡ Key Features
+## Key Features
 
-- **⚡ End-of-Day Quick Tally:** Log total sales, credit extended, and expenses in under 30 seconds.
-- **🎙️ Natural Language & Voice Parser:** Transcribe spoken voice inputs in English, Nigerian Pidgin, and mixed phrases (e.g., *"Sold 45k today, 12k on credit to Mama Ngozi, spent 3500 for transport"*).
-- **📋 Customer & Debtor Tracking:** Automatically manages credit balances, payment logs, overdue alerts, and provides 1-tap WhatsApp and SMS reminder templates.
-- **📈 Real-Time Macro Financial Dashboard:**
+- **End-of-Day Quick Tally:** Log total sales, credit extended, and expenses in under 30 seconds.
+- **Natural Language & Voice Parser:** Transcribe spoken voice inputs in English, Nigerian Pidgin, and mixed phrases (e.g., *"Sold 45k today, 12k on credit to Mama Ngozi, spent 3500 for transport"*).
+- **Customer & Debtor Tracking:** Automatically manages credit balances, payment logs, overdue alerts, and provides 1-tap WhatsApp and SMS reminder templates.
+- **Real-Time Macro Financial Dashboard:**
   - Revenue, Net Business Profit, Cash In Hand, and Outstanding Receivables.
   - Timeframe toggles (This Month vs. This Year) and period-over-period comparisons.
   - Smart, plain-language business insights.
-- **📱 PWA & 100% Offline Capability:**
+- **PWA & 100% Offline Capability:**
   - Installable to home screens via Web App Manifest and Service Worker (`sw.js`).
   - Powered by IndexedDB (`Dexie.js`) for instant reads and writes without waiting for server responses.
-- **🔄 Outbox Synchronization:** Background sync engine pushes pending records to the backend and fetches server updates once back online.
-- **📄 Lender Export Engine:** Client-side CSV generation (RFC 4180 compliant) exporting formatted financial statements ready for bank credit officers or microfinance partners.
-- **🌱 Demo Data Generator:** 1-click seeder populating realistic 60+ days of Nigerian market operations, multiple active customers, credit histories, and partial repayments.
-- **🌓 Adaptive Theme:** Instant light and dark mode toggles with zero-flash pre-render initialization.
+- **Outbox Synchronization:** Background sync engine pushes pending records to the backend and fetches server updates once back online.
+- **Lender Export Engine:** Client-side CSV generation (RFC 4180 compliant) exporting formatted financial statements ready for bank credit officers or microfinance partners.
+- **Demo Data Generator:** 1-click seeder populating realistic 60+ days of Nigerian market operations, multiple active customers, credit histories, and partial repayments.
+- **Adaptive Theme:** Instant light and dark mode toggles with zero-flash pre-render initialization.
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Technology | Purpose |
 |---|---|
 | **Next.js 16 (App Router)** | Modern React application framework with server/client boundaries |
 | **React 19** | Core UI library with modern hooks and concurrent features |
 | **TypeScript 5** | Strict type safety across domain types, repositories, and UI |
-| **Tailwind CSS v4 & CSS Variables** | Bespoke design system optimized for mobile responsiveness and performance |
+| **Vanilla CSS & CSS Variables** | Bespoke design system optimized for mobile responsiveness and performance |
 | **Dexie.js (v4)** | Minimal, type-safe client-side IndexedDB database layer |
 | **Jest 29 & ts-jest** | Unit and integration testing suite with JSDOM environment |
 | **Service Worker & Manifest** | PWA offline asset caching and home-screen installability |
 
 ---
 
-## 📂 Project Directory Structure
+## Project Directory Structure
 
 ```text
 frontend/
@@ -138,7 +139,7 @@ frontend/
 
 ---
 
-## 📋 Prerequisites
+## Prerequisites
 
 Before running the frontend, ensure your environment has:
 
@@ -148,14 +149,14 @@ Before running the frontend, ensure your environment has:
 
 ---
 
-## 🚀 Getting Started & Setup
+## Getting Started & Setup
 
 ### 1. Clone and Navigate
 
 If you haven't already cloned the repository, clone it and change directory into the `frontend` folder:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/QuorumBuilders/BizPulse.git
 cd BizPulse/frontend
 ```
 
@@ -201,7 +202,7 @@ Open your browser and navigate to:
 
 ---
 
-## 📜 Available npm Scripts
+## Available npm Scripts
 
 In the `frontend` directory, you can run the following commands:
 
@@ -216,7 +217,7 @@ In the `frontend` directory, you can run the following commands:
 
 ---
 
-## 🔄 Offline-First & Sync Architecture
+## Offline-First & Sync Architecture
 
 BizPulse is architected around **local-first durability**. Writes never block on network availability.
 
@@ -262,7 +263,7 @@ When any create or update operation occurs:
 
 ---
 
-## 🎙️ Voice & Pidgin Natural Language Parser
+## Voice & Pidgin Natural Language Parser
 
 Located in [`src/domain/voiceParser.ts`](file:///c:/Users/USER%20PC/Documents/BizPulse/frontend/src/domain/voiceParser.ts), BizPulse includes a built-in natural language parser tailored to Nigerian market vocabulary.
 
@@ -275,7 +276,7 @@ Located in [`src/domain/voiceParser.ts`](file:///c:/Users/USER%20PC/Documents/Bi
 
 ---
 
-## 🧪 Testing
+## Testing
 
 The frontend codebase maintains high test coverage for core financial algorithms, voice recognition, and export compliance.
 
@@ -301,7 +302,7 @@ npm run test
 
 ---
 
-## 🏆 Hackathon Demo & Evaluation Guide
+## Hackathon Demo & Evaluation Guide
 
 To test or demo the frontend during evaluation:
 
@@ -332,7 +333,7 @@ To test or demo the frontend during evaluation:
 
 ---
 
-## ❓ Troubleshooting & FAQ
+## Troubleshooting & FAQ
 
 ### Port `3000` is already in use
 Run the dev server on an alternate port:
@@ -351,11 +352,11 @@ To start fresh with a completely empty local IndexedDB database:
 Ensure your Django backend is running on `http://localhost:8000`:
 - Check that `NEXT_PUBLIC_API_URL=http://localhost:8000` in `.env`.
 - Ensure CORS headers on the Django backend allow requests from `http://localhost:3000`.
-- Verify JWT tokens are issued via `/api/v1/auth/login/` or `/api/v1/auth/register/`.
+- Verify JWT tokens are issued via `/api/auth/token/` or `/api/auth/register/`.
 
 ---
 
-## 👥 Contributors & Hackathon Team
+## Contributors & Hackathon Team
 
 - **Product & Frontend Engineering:** Built for the **Borderless Bytes Hackathon** by StacStart (*FinTech & Commerce Track*).
 - **Inquiries:** Refer to [Project Brief v3.3](../BizPulse-Project-Brief-v3.3.md) for full product roadmap and business specifications.
