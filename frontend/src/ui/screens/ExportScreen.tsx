@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import type { Business, Customer, DailyTally, CreditRecord, Repayment } from '@/domain/types';
-import { db } from '@/data/db';
 import { getAllTallies } from '@/data/repositories/dailyTallyRepo';
 import { getCreditRecordsForBusiness } from '@/data/repositories/creditRecordRepo';
 import { getAllRepaymentsForBusiness } from '@/data/repositories/repaymentRepo';
@@ -13,8 +12,6 @@ import {
   yearOf,
   formatNaira,
   formatDate,
-  creditSalesForDate,
-  totalSalesForDay,
   outstanding,
 } from '@/domain/derivations';
 import { generateCSV, downloadCSV } from '@/domain/export';
@@ -108,8 +105,8 @@ export default function ExportScreen({ business, onBack }: Props) {
 
   const handleCopySummary = () => {
     const periodLabel = period === 'month' ? `Month of ${currentYM}` : period === 'year' ? `Year ${currentYear}` : 'All Time';
-    const text = `📊 BIZPULSE FINANCIAL SUMMARY\n` +
-      `Business: ${business.name} (${business.type})\n` +
+    const text = `BIZPULSE FINANCIAL SUMMARY\n` +
+      `Business: ${business.name} (${business.type || 'Trader'})\n` +
       `Period: ${periodLabel}\n` +
       `---------------------------------\n` +
       `• Total Revenue: ${formatNaira(totalRevenue)}\n` +
@@ -131,54 +128,72 @@ export default function ExportScreen({ business, onBack }: Props) {
   };
 
   return (
-    <div className="page fade-in" style={{ padding: '20px 20px 80px' }}>
-      {/* Header */}
+    <div className="page fade-in" style={{ padding: '24px 20px 80px', maxWidth: 900, margin: '0 auto' }}>
       <div className="flex items-center justify-between" style={{ marginBottom: 20 }}>
         <button
           type="button"
           className="btn btn--ghost btn--sm"
           onClick={onBack}
-          style={{ padding: '6px 12px', fontSize: '0.875rem' }}
+          style={{ padding: '6px 12px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 6 }}
         >
-          ← Back to Dashboard
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
+          </svg>
+          Back to Dashboard
         </button>
-        <span className="badge badge--paid">Lender-Ready</span>
+        <span
+          className="badge"
+          style={{
+            background: 'rgba(16,185,129,0.12)',
+            color: 'var(--color-emerald-light)',
+            border: '1px solid rgba(16,185,129,0.25)',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            padding: '4px 10px',
+          }}
+        >
+          Lender-Ready Format
+        </span>
       </div>
 
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: '1.5rem', marginBottom: 4 }}>Statement &amp; Export</h1>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: 4, letterSpacing: '-0.02em' }}>
+          Statement &amp; Export
+        </h1>
         <p className="text-xs text-muted">
           Download spreadsheets or print verified summaries for lenders and loan applications.
         </p>
       </div>
 
-      {/* Period Selection */}
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="text-xs text-muted font-semibold uppercase tracking-wider mb-2">
+      <div className="card" style={{ marginBottom: 16, padding: '14px 18px', background: 'var(--color-surface)' }}>
+        <div className="text-xs text-muted font-medium uppercase tracking-wider mb-2.5">
           Select Statement Period
         </div>
-        <div className="flex gap-2">
+        <div className="period-toggle" role="tablist" style={{ maxWidth: 360 }}>
           <button
             type="button"
-            className={`btn btn--sm flex-1 ${period === 'month' ? 'btn--primary' : 'btn--secondary'}`}
+            role="tab"
+            aria-selected={period === 'month'}
+            className={`period-toggle__pill ${period === 'month' ? 'period-toggle__pill--active' : ''}`}
             onClick={() => setPeriod('month')}
-            style={{ fontSize: '0.8125rem', padding: '8px' }}
           >
             This Month
           </button>
           <button
             type="button"
-            className={`btn btn--sm flex-1 ${period === 'year' ? 'btn--primary' : 'btn--secondary'}`}
+            role="tab"
+            aria-selected={period === 'year'}
+            className={`period-toggle__pill ${period === 'year' ? 'period-toggle__pill--active' : ''}`}
             onClick={() => setPeriod('year')}
-            style={{ fontSize: '0.8125rem', padding: '8px' }}
           >
             This Year
           </button>
           <button
             type="button"
-            className={`btn btn--sm flex-1 ${period === 'all' ? 'btn--primary' : 'btn--secondary'}`}
+            role="tab"
+            aria-selected={period === 'all'}
+            className={`period-toggle__pill ${period === 'all' ? 'period-toggle__pill--active' : ''}`}
             onClick={() => setPeriod('all')}
-            style={{ fontSize: '0.8125rem', padding: '8px' }}
           >
             All Time
           </button>
@@ -192,22 +207,21 @@ export default function ExportScreen({ business, onBack }: Props) {
         </div>
       ) : (
         <>
-          {/* Printable Lender Summary Card */}
           <div
-            className="card card--elevated print-statement"
+            className="card print-statement"
             style={{
-              padding: 20,
-              background: 'linear-gradient(160deg, rgba(30,41,59,0.7), rgba(15,23,42,0.9))',
-              borderColor: 'rgba(16,185,129,0.3)',
-              marginBottom: 16,
+              padding: 22,
+              background: 'var(--color-surface)',
+              borderTop: '2px solid var(--color-emerald)',
+              marginBottom: 20,
             }}
           >
-            <div className="flex justify-between items-start" style={{ borderBottom: '1px solid var(--color-border)', paddingBottom: 12, marginBottom: 16 }}>
+            <div className="flex justify-between items-start" style={{ borderBottom: '1px solid var(--color-border)', paddingBottom: 14, marginBottom: 16 }}>
               <div>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-text-primary)', letterSpacing: '-0.01em' }}>
                   {business.name}
                 </h2>
-                <p className="text-xs text-muted">
+                <p className="text-xs text-muted" style={{ marginTop: 2 }}>
                   Type: {business.type || 'Small Business / Trading'} • Currency: NGN (₦)
                 </p>
               </div>
@@ -221,97 +235,134 @@ export default function ExportScreen({ business, onBack }: Props) {
               </div>
             </div>
 
-            {/* Figures Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 16 }}>
-              <div style={{ background: 'var(--color-surface-overlay)', padding: '10px 12px', borderRadius: 8 }}>
-                <div className="text-xs text-muted">Total Revenue</div>
-                <div className="font-bold text-emerald" style={{ fontSize: '1.125rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 18 }}>
+              <div style={{ background: 'var(--color-surface-2)', padding: '12px 14px', borderRadius: 8, border: '1px solid var(--color-border)' }}>
+                <div className="text-xs text-muted mb-1 font-medium">Total Revenue</div>
+                <div
+                  style={{
+                    fontFamily: "'Space Grotesk', sans-serif",
+                    fontSize: '1.25rem',
+                    fontWeight: 700,
+                    color: 'var(--color-emerald-light)',
+                  }}
+                >
                   {formatNaira(totalRevenue)}
                 </div>
-                <div className="text-xs text-muted" style={{ fontSize: '0.7rem' }}>
+                <div className="text-xs text-muted" style={{ fontSize: '0.7rem', marginTop: 3 }}>
                   Cash: {formatNaira(totalCashSales)} | Credit: {formatNaira(totalCreditSales)}
                 </div>
               </div>
 
-              <div style={{ background: 'var(--color-surface-overlay)', padding: '10px 12px', borderRadius: 8 }}>
-                <div className="text-xs text-muted">Total Expenses</div>
-                <div className="font-bold text-rose" style={{ fontSize: '1.125rem' }}>
+              <div style={{ background: 'var(--color-surface-2)', padding: '12px 14px', borderRadius: 8, border: '1px solid var(--color-border)' }}>
+                <div className="text-xs text-muted mb-1 font-medium">Total Expenses</div>
+                <div
+                  style={{
+                    fontFamily: "'Space Grotesk', sans-serif",
+                    fontSize: '1.25rem',
+                    fontWeight: 700,
+                    color: 'var(--color-rose)',
+                  }}
+                >
                   {formatNaira(totalExpenses)}
                 </div>
-                <div className="text-xs text-muted" style={{ fontSize: '0.7rem' }}>
-                  Operating costs
+                <div className="text-xs text-muted" style={{ fontSize: '0.7rem', marginTop: 3 }}>
+                  Recorded operating outlays
                 </div>
               </div>
 
-              <div style={{ background: 'var(--color-surface-overlay)', padding: '10px 12px', borderRadius: 8 }}>
-                <div className="text-xs text-muted">Net Business Result</div>
+              <div style={{ background: 'var(--color-surface-2)', padding: '12px 14px', borderRadius: 8, border: '1px solid var(--color-border)' }}>
+                <div className="text-xs text-muted mb-1 font-medium">Net Business Result</div>
                 <div
-                  className="font-bold"
                   style={{
-                    fontSize: '1.125rem',
+                    fontFamily: "'Space Grotesk', sans-serif",
+                    fontSize: '1.25rem',
+                    fontWeight: 700,
                     color: netResult >= 0 ? 'var(--color-emerald-light)' : 'var(--color-rose)',
                   }}
                 >
                   {formatNaira(netResult)}
                 </div>
-                <div className="text-xs text-muted" style={{ fontSize: '0.7rem' }}>
+                <div className="text-xs text-muted" style={{ fontSize: '0.7rem', marginTop: 3 }}>
                   {netResult >= 0 ? 'Operating Profit' : 'Operating Deficit'}
                 </div>
               </div>
 
-              <div style={{ background: 'var(--color-surface-overlay)', padding: '10px 12px', borderRadius: 8 }}>
-                <div className="text-xs text-muted">Receivables (Owed)</div>
-                <div className="font-bold text-amber" style={{ fontSize: '1.125rem' }}>
+              <div style={{ background: 'var(--color-surface-2)', padding: '12px 14px', borderRadius: 8, border: '1px solid var(--color-border)' }}>
+                <div className="text-xs text-muted mb-1 font-medium">Receivables (Owed)</div>
+                <div
+                  style={{
+                    fontFamily: "'Space Grotesk', sans-serif",
+                    fontSize: '1.25rem',
+                    fontWeight: 700,
+                    color: 'var(--color-amber-light)',
+                  }}
+                >
                   {formatNaira(totalOutstanding)}
                 </div>
-                <div className="text-xs text-muted" style={{ fontSize: '0.7rem' }}>
-                  Recoverable customer debt
+                <div className="text-xs text-muted" style={{ fontSize: '0.7rem', marginTop: 3 }}>
+                  Unsettled customer credit
                 </div>
               </div>
             </div>
 
-            <div style={{ padding: '8px 12px', background: 'rgba(16,185,129,0.06)', borderRadius: 6, border: '1px solid rgba(16,185,129,0.15)' }}>
-              <p className="text-xs text-muted" style={{ lineHeight: 1.4 }}>
-                🔒 <strong>Verified Ledger:</strong> Based on {filteredTallies.length} daily tallies and {filteredCredits.length} credit transactions recorded in BizPulse.
+            <div style={{ padding: '10px 14px', background: 'rgba(16,185,129,0.06)', borderRadius: 8, border: '1px solid rgba(16,185,129,0.15)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--color-emerald)', flexShrink: 0 }}>
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              <p className="text-xs text-muted" style={{ lineHeight: 1.4, margin: 0 }}>
+                <strong style={{ color: 'var(--color-text-primary)' }}>Verified Ledger:</strong> Based on {filteredTallies.length} daily tallies and {filteredCredits.length} credit transactions recorded in BizPulse.
               </p>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2.5">
             <button
               type="button"
               className="btn btn--primary w-full"
               onClick={handleDownloadCSV}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14 }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, fontWeight: 600 }}
             >
-              📥 Download CSV Spreadsheet
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Download CSV Spreadsheet
             </button>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2.5">
               <button
                 type="button"
                 className="btn btn--secondary flex-1"
                 onClick={handlePrint}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 12, fontSize: '0.875rem' }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '12px 14px', fontSize: '0.875rem' }}
               >
-                🖨️ Print / Save PDF
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <polyline points="6 9 6 2 18 2 18 9" />
+                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                  <rect x="6" y="14" width="12" height="8" />
+                </svg>
+                Print / Save PDF
               </button>
 
               <button
                 type="button"
                 className="btn btn--secondary flex-1"
                 onClick={handleCopySummary}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 12, fontSize: '0.875rem' }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '12px 14px', fontSize: '0.875rem' }}
               >
-                📋 Copy for WhatsApp
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+                Copy for WhatsApp
               </button>
             </div>
           </div>
         </>
       )}
 
-      {/* Toast Notification */}
       {toastMessage && (
         <div
           className="toast toast--success"

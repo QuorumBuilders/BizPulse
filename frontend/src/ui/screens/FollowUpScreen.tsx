@@ -73,51 +73,69 @@ export default function FollowUpScreen({ business }: Props) {
 
   return (
     <div className="page fade-in" style={{ padding: 0 }}>
-      {/* Header */}
       <header
         style={{
-          padding: '20px 20px 12px',
+          padding: '24px 20px 16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
         }}
       >
         <div>
-          <h1 style={{ fontSize: '1.375rem', marginBottom: 2 }}>Follow-Up List</h1>
+          <h1 style={{ fontSize: '1.375rem', fontWeight: 700, marginBottom: 4, letterSpacing: '-0.02em' }}>
+            Follow-Up List
+          </h1>
           <p className="text-xs text-muted">Who owes you &amp; promised pay dates</p>
         </div>
         <SyncIndicator />
       </header>
 
-      {/* Summary Banner */}
-      <div style={{ padding: '0 20px 16px' }}>
+      <div style={{ padding: '0 20px 20px' }}>
         <div
           className="card"
           style={{
-            background: 'linear-gradient(135deg, rgba(245,158,11,0.1), rgba(15,23,42,0.6))',
-            borderColor: 'rgba(245,158,11,0.25)',
+            borderTop: '2px solid var(--color-amber)',
+            background: 'var(--color-surface)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            padding: '18px 20px',
           }}
         >
           <div>
-            <span className="text-xs text-muted block mb-1">Total Outstanding Debt</span>
-            <span className="font-bold" style={{ fontSize: '1.5rem', color: 'var(--color-amber-light)' }}>
+            <span className="text-xs text-muted block mb-1 font-medium">Total Outstanding Debt</span>
+            <span
+              style={{
+                fontFamily: "'Space Grotesk', sans-serif",
+                fontSize: '1.625rem',
+                fontWeight: 700,
+                color: 'var(--color-amber-light)',
+                letterSpacing: '-0.02em',
+              }}
+            >
               {formatNaira(totalOwed)}
             </span>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <span className="badge badge--overdue" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>
+            <span
+              className="badge"
+              style={{
+                fontSize: '0.75rem',
+                padding: '4px 10px',
+                background: overdueCount > 0 ? 'rgba(244,63,94,0.12)' : 'rgba(16,185,129,0.12)',
+                color: overdueCount > 0 ? 'var(--color-rose)' : 'var(--color-emerald)',
+                border: `1px solid ${overdueCount > 0 ? 'rgba(244,63,94,0.25)' : 'rgba(16,185,129,0.25)'}`,
+                fontWeight: 600,
+              }}
+            >
               {overdueCount} Overdue
             </span>
-            <p className="text-xs text-muted mt-1">{debtors.length} customer(s)</p>
+            <p className="text-xs text-muted mt-1.5">{debtors.length} customer{debtors.length !== 1 ? 's' : ''}</p>
           </div>
         </div>
       </div>
 
-      {/* Debtors List */}
-      <div style={{ padding: '0 20px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ padding: '0 20px 32px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {isLoading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div className="skeleton skeleton--card" />
@@ -125,70 +143,122 @@ export default function FollowUpScreen({ business }: Props) {
             <div className="skeleton skeleton--card" />
           </div>
         ) : debtors.length === 0 ? (
-          <div className="card text-center" style={{ padding: 36 }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>🎉</div>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: 6 }}>No Outstanding Debts</h3>
-            <p className="text-xs text-muted">
-              All customer credit has been settled or no credit was given. Good job!
+          <div className="card text-center" style={{ padding: '48px 24px', background: 'var(--color-surface)' }}>
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: '50%',
+                background: 'rgba(16,185,129,0.1)',
+                border: '1px solid rgba(16,185,129,0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 16px',
+                color: 'var(--color-emerald)',
+              }}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 6 }}>No Outstanding Debts</h3>
+            <p className="text-xs text-muted" style={{ maxWidth: 320, margin: '0 auto' }}>
+              All customer credit has been settled or no credit was issued. Your ledger is clear.
             </p>
           </div>
         ) : (
           debtors.map((debtor) => (
             <div
               key={debtor.customer.client_id}
-              className={`card ${debtor.isOverdue ? 'card--glow-amber' : ''}`}
+              className="card debtor-item-card"
               style={{
-                borderColor: debtor.isOverdue ? 'rgba(244,63,94,0.3)' : 'var(--color-border)',
-                padding: '16px',
+                borderTop: debtor.isOverdue ? '2px solid var(--color-rose)' : '2px solid var(--color-border)',
+                padding: '18px 20px',
+                transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
               }}
             >
-              <div className="flex justify-between items-start" style={{ marginBottom: 8 }}>
+              <div className="flex justify-between items-start" style={{ marginBottom: 10 }}>
                 <div>
-                  <h4 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                  <h4 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>
                     {debtor.customer.name}
                   </h4>
                   {debtor.customer.phone && (
-                    <p className="text-xs text-muted" style={{ marginTop: 2 }}>
-                      📞 {debtor.customer.phone}
+                    <p className="text-xs text-muted" style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                      </svg>
+                      {debtor.customer.phone}
                     </p>
                   )}
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div className="font-bold" style={{ fontSize: '1.125rem', color: 'var(--color-amber-light)' }}>
+                  <div
+                    style={{
+                      fontFamily: "'Space Grotesk', sans-serif",
+                      fontWeight: 700,
+                      fontSize: '1.15rem',
+                      color: debtor.isOverdue ? 'var(--color-rose)' : 'var(--color-amber-light)',
+                    }}
+                  >
                     {formatNaira(debtor.totalOutstanding)}
                   </div>
                   <span
                     className={`badge ${debtor.isOverdue ? 'badge--overdue' : 'badge--partial'}`}
-                    style={{ fontSize: '0.7rem', marginTop: 4, display: 'inline-block' }}
+                    style={{ fontSize: '0.6875rem', marginTop: 4, display: 'inline-block' }}
                   >
-                    {debtor.isOverdue ? '⚠️ Overdue' : 'Active'}
+                    {debtor.isOverdue ? 'Overdue' : 'Active'}
                   </span>
                 </div>
               </div>
 
               {debtor.oldestDueDate && (
-                <p className="text-xs text-muted" style={{ marginBottom: 12 }}>
-                  📅 Promised due date: <strong style={{ color: 'var(--color-text-primary)' }}>{formatDate(debtor.oldestDueDate)}</strong>
+                <p className="text-xs text-muted" style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                  Promised date: <strong style={{ color: 'var(--color-text-primary)' }}>{formatDate(debtor.oldestDueDate)}</strong>
                 </p>
               )}
 
-              {/* Action Buttons */}
-              <div className="flex gap-2" style={{ marginTop: 8 }}>
+              <div className="flex gap-2" style={{ marginTop: 6 }}>
                 <button
                   type="button"
                   className="btn btn--secondary btn--sm flex-1"
                   onClick={() => handleSendReminder(debtor)}
-                  style={{ padding: '8px 12px', fontSize: '0.8125rem' }}
+                  style={{
+                    padding: '8px 12px',
+                    fontSize: '0.8125rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                  }}
                 >
-                  💬 Remind
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                  WhatsApp Remind
                 </button>
                 <button
                   type="button"
                   className="btn btn--primary btn--sm flex-1"
                   onClick={() => handleOpenPayment(debtor)}
-                  style={{ padding: '8px 12px', fontSize: '0.8125rem' }}
+                  style={{
+                    padding: '8px 12px',
+                    fontSize: '0.8125rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                  }}
                 >
-                  💵 Received Money
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Record Payment
                 </button>
               </div>
             </div>
@@ -196,11 +266,10 @@ export default function FollowUpScreen({ business }: Props) {
         )}
       </div>
 
-      {/* Record Repayment Modal */}
       {selectedDebtor && (
         <div className="modal-overlay" onClick={() => setSelectedDebtor(null)}>
           <div className="modal-sheet" onClick={(e: React.MouseEvent<HTMLDivElement>) => e.stopPropagation()}>
-            <h3 style={{ marginBottom: 12 }}>Record Payment</h3>
+            <h3 style={{ marginBottom: 8, fontSize: '1.2rem', fontWeight: 700 }}>Record Payment</h3>
             <p className="text-xs text-muted" style={{ marginBottom: 16 }}>
               Recording money received from <strong style={{ color: 'var(--color-text-primary)' }}>{selectedDebtor.customer.name}</strong>.
             </p>
@@ -235,7 +304,7 @@ export default function FollowUpScreen({ business }: Props) {
                 />
               </div>
               <p className="text-xs text-muted mt-2">
-                Total owed: {formatNaira(selectedDebtor.totalOutstanding)}. You can enter partial amounts.
+                Total owed: {formatNaira(selectedDebtor.totalOutstanding)}. Partial payments are supported.
               </p>
             </div>
 
@@ -253,14 +322,13 @@ export default function FollowUpScreen({ business }: Props) {
                 onClick={handleConfirmPayment}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Saving…' : '✓ Confirm Received'}
+                {isSubmitting ? 'Saving…' : 'Confirm Payment'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Toast */}
       {toastMessage && (
         <div
           className="toast"

@@ -188,11 +188,29 @@ function ConfirmationOverlay({
         <div className="divider" />
 
         <div className="flex gap-3">
-          <button id="confirm-edit-btn" type="button" className="btn btn--secondary flex-1" onClick={onEdit}>
-            ✏️ Edit
+          <button
+            id="confirm-edit-btn"
+            type="button"
+            className="btn btn--secondary flex-1"
+            onClick={onEdit}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+            </svg>
+            Edit
           </button>
-          <button id="confirm-save-btn" type="button" className="btn btn--primary flex-1" onClick={onConfirm}>
-            ✅ Save tally
+          <button
+            id="confirm-save-btn"
+            type="button"
+            className="btn btn--primary flex-1"
+            onClick={onConfirm}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Save tally
           </button>
         </div>
       </div>
@@ -219,6 +237,7 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
   const [form, setForm] = useState<FormState>(emptyForm());
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSaveSuccess, setIsSaveSuccess] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [todaySummary, setTodaySummary] = useState<TodaySummary | null>(null);
   const [customersMap, setCustomersMap] = useState<Record<string, string>>({});
@@ -240,7 +259,6 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
     const totalSales = totalSalesForDay(tally ?? undefined, creditSales);
     setTodaySummary({ tally, credits, totalSales, creditSales });
 
-    // Load customer names for lookup
     const allCustomers = await getCustomers(business.client_id);
     const map: Record<string, string> = {};
     for (const c of allCustomers) {
@@ -248,7 +266,6 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
     }
     setCustomersMap(map);
 
-    // Pre-fill form if tally exists
     if (tally) {
       setForm((f: FormState) => ({
         ...f,
@@ -259,7 +276,6 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
     }
   }, [business.client_id, today]);
 
-  // Load today's existing tally on mount (for editing)
   useEffect(() => {
     loadTodaySummary();
   }, [loadTodaySummary]);
@@ -269,12 +285,10 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
     setTimeout(() => setToast(null), 3000);
   };
 
-  // Speech-to-text recording
   const [isListening, setIsListening] = useState(false);
   const [voiceHeard, setVoiceHeard] = useState<string | null>(null);
 
   const startVoiceInput = () => {
-    // Check Web Speech API support
     const SpeechRec = typeof window !== 'undefined' && (
       (window as unknown as { SpeechRecognition?: any }).SpeechRecognition ||
       (window as unknown as { webkitSpeechRecognition?: any }).webkitSpeechRecognition
@@ -330,7 +344,6 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
     }
   };
 
-  // Credit line helpers
   const addCreditLine = () => {
     setForm((f: FormState) => ({
       ...f,
@@ -368,14 +381,12 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
 
     try {
       await db.transaction('rw', [db.daily_tallies, db.customers, db.credit_records, db.outbox], async () => {
-        // 1. Upsert the DailyTally (cash_sales = totalSold - credit)
         await upsertTallyForDate(business.client_id, today, {
           cash_sales: cashSales,
           expenses,
           note: form.note,
         });
 
-        // 2. Create a CreditRecord per named debtor
         for (const line of form.creditLines) {
           if (!line.customerName.trim() || line.amount <= 0) continue;
           const customer = await findOrCreateCustomer(
@@ -394,6 +405,8 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
 
       await loadTodaySummary();
       setForm(emptyForm());
+      setIsSaveSuccess(true);
+      setTimeout(() => setIsSaveSuccess(false), 2000);
       showToast("Today's tally saved!", 'success');
     } catch (err) {
       console.error('Save failed:', err);
@@ -414,7 +427,6 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
 
   return (
     <div className="page fade-in" style={{ padding: 0 }}>
-      {/* Header */}
       <header
         style={{
           padding: '20px 20px 0',
@@ -433,32 +445,25 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
       </header>
 
       <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-        {/* TOP METRIC CARDS — Revenue this month + Cash position */}
         {metrics && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-            <div className="card" style={{ padding: '14px 16px' }}>
-              <div className="metric-label" style={{ marginBottom: 4 }}>💰 Revenue (month)</div>
-              <div className="font-bold" style={{ fontSize: '1.2rem', color: 'var(--color-emerald-light)' }}>
+            <div className="card" style={{ padding: '16px 18px', borderTop: '2px solid var(--color-emerald)', background: 'var(--color-surface)' }}>
+              <div className="metric-label" style={{ marginBottom: 6 }}>Revenue (Month)</div>
+              <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: '1.25rem', color: 'var(--color-emerald-light)' }}>
                 {formatNaira(metrics.revenue)}
               </div>
             </div>
-            <div className="card" style={{ padding: '14px 16px' }}>
-              <div className="metric-label" style={{ marginBottom: 4 }}>💵 Cash position</div>
-              <div className="font-bold" style={{ fontSize: '1.2rem', color: 'var(--color-text-primary)' }}>
+            <div className="card" style={{ padding: '16px 18px', borderTop: '2px solid var(--color-emerald)', background: 'var(--color-surface)' }}>
+              <div className="metric-label" style={{ marginBottom: 6 }}>Cash Position</div>
+              <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: '1.25rem', color: 'var(--color-text-primary)' }}>
                 {formatNaira(metrics.cashAtHand)}
               </div>
             </div>
           </div>
         )}
 
-        {/* TALLY WORKSPACE — 1 col on mobile, 2 col on desktop (≥1024px) */}
         <div className="tally-workspace-split">
-
-          {/* ── LEFT COLUMN: today summary + entry form ── */}
           <div className="flex flex-col gap-4">
-
-        {/* TODAY'S SAVED SUMMARY (if already logged today) */}
         {todaySummary?.tally && (
           <div className="card card--glow-emerald fade-in">
             <div className="section-header" style={{ marginBottom: 12 }}>
@@ -495,7 +500,6 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
           </div>
         )}
 
-        {/* TODAY'S TALLY ENTRY */}
         <div className="card card--elevated">
           <div className="section-header">
             <h2 style={{ fontSize: '1rem' }}>Today&apos;s tally</h2>
@@ -571,8 +575,12 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
           <div className="flex flex-col gap-4">
             {/* Total Sold */}
             <div className="form-group">
-              <label className="form-label" htmlFor="total-sold">
-                💰 Total sold today (₦)
+              <label className="form-label" htmlFor="total-sold" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="2" y="4" width="20" height="16" rx="2" />
+                  <line x1="2" y1="10" x2="22" y2="10" />
+                </svg>
+                Total sold today (₦)
               </label>
               <div className="relative">
                 <span style={{
@@ -595,8 +603,12 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
 
             {/* Expenses */}
             <div className="form-group">
-              <label className="form-label" htmlFor="expenses">
-                🧾 Total expenses (₦)
+              <label className="form-label" htmlFor="expenses" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <polyline points="23 18 13.5 8.5 8.5 13.5 1 6" />
+                  <polyline points="17 18 23 18 23 12" />
+                </svg>
+                Total expenses (₦)
               </label>
               <div className="relative">
                 <span style={{
@@ -620,7 +632,15 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
             {/* Credit section */}
             <div>
               <div className="section-header" style={{ marginBottom: 8 }}>
-                <span className="form-label">💳 On credit — optional</span>
+                <span className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  </svg>
+                  On credit — optional
+                </span>
                 <button
                   id="add-credit-btn"
                   type="button"
@@ -653,8 +673,12 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
 
             {/* Note */}
             <div className="form-group">
-              <label className="form-label" htmlFor="note">
-                📝 Note (optional)
+              <label className="form-label" htmlFor="note" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+                Note (optional)
               </label>
               <textarea
                 id="note"
@@ -670,14 +694,29 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
             <button
               id="save-tally-btn"
               type="button"
-              className="btn btn--primary"
+              className={`btn btn--primary ${isSaveSuccess ? 'btn--save-success' : ''}`}
               onClick={handleSubmitForm}
               disabled={isSaving}
+              style={{
+                transition: 'background-color 0.2s ease, transform 0.1s ease',
+              }}
             >
               {isSaving ? (
                 <><span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Saving…</>
+              ) : isSaveSuccess ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Saved!
+                </span>
               ) : (
-                "✅ Save today's tally"
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Save today&apos;s tally
+                </span>
               )}
             </button>
           </div>
@@ -719,12 +758,9 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
           </div>
         </div>
 
-          </div>{/* end LEFT COLUMN */}
+          </div>
 
-          {/* ── RIGHT COLUMN: credit log today + mini follow-up ── */}
           <div className="flex flex-col gap-4">
-
-        {/* DEBTORS TODAY (if any credit was given today) */}
         {todaySummary && todaySummary.credits.length > 0 && (
           <div>
             <div className="section-header">
@@ -750,11 +786,10 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
           </div>
         )}
 
-        {/* MINI FOLLOW-UP LIST — top 3 debtors */}
         {topDebtors.length > 0 && (
           <div>
             <div className="section-header">
-              <span className="section-title">⚠️ Who to follow up with</span>
+              <span className="section-title">Who to follow up with</span>
               {onGoToFollowUp && (
                 <button
                   type="button"
@@ -788,7 +823,14 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
                     )}
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div className="font-semibold text-amber" style={{ fontSize: '0.875rem' }}>
+                    <div
+                      style={{
+                        fontFamily: "'Space Grotesk', sans-serif",
+                        fontWeight: 700,
+                        fontSize: '0.875rem',
+                        color: debtor.isOverdue ? 'var(--color-rose)' : 'var(--color-amber-light)',
+                      }}
+                    >
                       {formatNaira(debtor.totalOutstanding)}
                     </div>
                     {debtor.isOverdue && (
@@ -801,13 +843,12 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
           </div>
         )}
 
-          </div>{/* end RIGHT COLUMN */}
+          </div>
 
-        </div>{/* end tally-workspace-split */}
+        </div>
 
       </div>
 
-      {/* Confirmation overlay */}
       {showConfirm && (
         <ConfirmationOverlay
           form={form}
@@ -816,7 +857,6 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
         />
       )}
 
-      {/* Toast */}
       {toast && <Toast message={toast.message} type={toast.type} />}
     </div>
   );
