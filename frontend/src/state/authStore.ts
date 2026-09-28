@@ -19,15 +19,7 @@
 import { login, refreshTokens, logout as apiLogout } from '../api/authApi';
 import type { TokenPair } from '../api/authApi';
 
-// ---------------------------------------------------------------------------
-// Storage keys
-// ---------------------------------------------------------------------------
-
 const STORAGE_KEY_REFRESH = 'bp_refresh_token';
-
-// ---------------------------------------------------------------------------
-// Internal state
-// ---------------------------------------------------------------------------
 
 interface AuthState {
   accessToken: string | null;
@@ -48,10 +40,6 @@ type Listener = (state: AuthState) => void;
 const _listeners = new Set<Listener>();
 
 let _refreshTimerId: ReturnType<typeof setTimeout> | null = null;
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
 
 function _notify(): void {
   _listeners.forEach((fn) => fn(_state));
@@ -104,10 +92,6 @@ function _scheduleRefresh(): void {
     });
   }, 13 * 60 * 1000); // 13 minutes
 }
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
 
 /**
  * Hydrate auth state from localStorage on app boot.
@@ -221,10 +205,6 @@ export function getAccessToken(): string | null {
 export function getAuthState(): Readonly<AuthState> {
   return _state;
 }
-
-// ---------------------------------------------------------------------------
-// React integration — useAuthStore hook
-// ---------------------------------------------------------------------------
 
 import { useSyncExternalStore } from 'react';
 

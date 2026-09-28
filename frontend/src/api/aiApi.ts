@@ -1,10 +1,6 @@
 /**
- * BizPulse — AI Voice Transcription API Client
- *
- * Talks to POST /api/ai/transcribe/
- * Audio file is sent via multipart/form-data.
- * Backend uses Groq Whisper server-side (whisper-large-v3-turbo)
- * and LLM schema-constrained extraction.
+ * AI voice transcription client. Sends audio to POST /api/ai/transcribe/
+ * and returns schema-extracted structured data.
  */
 
 import { getAccessToken, silentRefresh } from '../state/authStore';
@@ -69,13 +65,6 @@ export class AiApiError extends Error {
   }
 }
 
-/**
- * Sends a recorded audio blob or file to POST /api/ai/transcribe/
- *
- * @param audio The audio blob or File to transcribe
- * @param intent Optional explicit intent ('daily_tally' | 'credit_sale' | 'repayment')
- * @param filename Optional filename (defaults to 'recording.webm')
- */
 export async function apiTranscribeAudio<T = unknown>(
   audio: Blob | File,
   intent?: VoiceIntent,

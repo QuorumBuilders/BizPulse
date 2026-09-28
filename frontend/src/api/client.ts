@@ -1,30 +1,12 @@
 /**
- * BizPulse — API Client
- *
- * Authenticated data-plane requests (business, tallies, repayments, etc.).
- * Auth requests (login, register, etc.) live in src/api/authApi.ts.
- *
- * Automatically refreshes the access token on 401, then retries once.
- * Auth state is managed by src/state/authStore.ts.
- *
- * IMPORTANT: If the backend isn't ready or a network request fails,
- * the UI NEVER blocks — it always reads from IndexedDB. This file is
- * only called by the sync engine (data/sync.ts), never directly from
- * UI components or hooks.
+ * Authenticated data-plane API client (business, tallies, credits, repayments).
+ * Auth requests live in authApi.ts. Token refresh is handled automatically on 401.
  */
-
-// ---------------------------------------------------------------------------
-// Configuration
-// ---------------------------------------------------------------------------
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 import { getAccessToken, silentRefresh } from '../state/authStore';
 export { getAccessToken } from '../state/authStore';
-
-// ---------------------------------------------------------------------------
-// HTTP helpers
-// ---------------------------------------------------------------------------
 
 class ApiError extends Error {
   constructor(
@@ -92,11 +74,6 @@ async function request<T>(
   return jsonResult as T;
 }
 
-// ---------------------------------------------------------------------------
-// Auth stubs — @deprecated
-// Use src/api/authApi.ts for all new auth calls.
-// ---------------------------------------------------------------------------
-
 export interface SignupPayload {
   email: string;
   display_name: string;
@@ -126,10 +103,6 @@ export async function apiLogin(payload: {
 export async function apiRefreshToken(refresh: string): Promise<TokenPair> {
   return request<TokenPair>('POST', '/api/auth/token/refresh/', { refresh });
 }
-
-// ---------------------------------------------------------------------------
-// Business endpoints
-// ---------------------------------------------------------------------------
 
 export interface BusinessPayload {
   name: string;
@@ -164,10 +137,6 @@ export async function apiUpdateBusiness(
   });
 }
 
-// ---------------------------------------------------------------------------
-// Customer endpoints
-// ---------------------------------------------------------------------------
-
 export interface CustomerPayload {
   name: string;
   phone: string;
@@ -200,10 +169,6 @@ export async function apiUpdateCustomer(
 ): Promise<CustomerResponse> {
   return request<CustomerResponse>('PATCH', `/api/businesses/${businessId}/customers/${customerId}/`, payload);
 }
-
-// ---------------------------------------------------------------------------
-// Daily Tally endpoints
-// ---------------------------------------------------------------------------
 
 export interface DailyTallyPayload {
   date: string;
@@ -251,10 +216,6 @@ export async function apiUpdateDailyTally(
   return request<DailyTallyResponse>('PATCH', `/api/businesses/${businessId}/daily-tallies/${tallyId}/`, payload);
 }
 
-// ---------------------------------------------------------------------------
-// Credit Record endpoints
-// ---------------------------------------------------------------------------
-
 export interface CreditRecordPayload {
   customer: number; // server customer id
   amount: number;
@@ -294,10 +255,6 @@ export async function apiUpdateCreditRecord(
   return request<CreditRecordResponse>('PATCH', `/api/businesses/${businessId}/credits/${creditId}/`, payload);
 }
 
-// ---------------------------------------------------------------------------
-// Repayment endpoints
-// ---------------------------------------------------------------------------
-
 export interface RepaymentPayload {
   amount: number;
   paid_date: string;
@@ -327,9 +284,5 @@ export async function apiCreateRepayment(
     paid_date: payload.paid_date,
   });
 }
-
-// ---------------------------------------------------------------------------
-// Error type export
-// ---------------------------------------------------------------------------
 
 export { ApiError };

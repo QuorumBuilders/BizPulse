@@ -38,9 +38,6 @@ import {
 import { _setTokens as setTokensInStore, authLogout } from '../state/authStore';
 import type { OutboxEntry } from '../domain/types';
 
-// ---------------------------------------------------------------------------
-// Token management (loads from localStorage on init)
-// ---------------------------------------------------------------------------
 
 const REFRESH_KEY = 'bp_refresh_token';
 
@@ -62,10 +59,6 @@ export function hasStoredToken(): boolean {
   return !!localStorage.getItem(REFRESH_KEY);
 }
 
-// ---------------------------------------------------------------------------
-// Sync status (simple event bus for useSyncStatus hook)
-// ---------------------------------------------------------------------------
-
 type SyncListener = (status: 'syncing' | 'success' | 'error' | 'offline' | 'idle') => void;
 const listeners: Set<SyncListener> = new Set();
 
@@ -77,10 +70,6 @@ export function subscribeSyncStatus(fn: SyncListener): () => void {
 function emitStatus(status: Parameters<SyncListener>[0]): void {
   listeners.forEach((fn) => fn(status));
 }
-
-// ---------------------------------------------------------------------------
-// Push a single outbox entry
-// ---------------------------------------------------------------------------
 
 async function pushEntry(entry: OutboxEntry): Promise<void> {
   const { entity, client_id, operation } = entry;
@@ -256,10 +245,6 @@ async function pushEntry(entry: OutboxEntry): Promise<void> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Main sync function
-// ---------------------------------------------------------------------------
-
 let syncInProgress = false;
 
 export async function runSync(): Promise<void> {
@@ -289,31 +274,23 @@ export async function runSync(): Promise<void> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Sync scheduler — call once on app startup
-// ---------------------------------------------------------------------------
-
 let syncInterval: ReturnType<typeof setInterval> | null = null;
 
 export function startSyncScheduler(): () => void {
   if (typeof window === 'undefined') return () => {};
 
-  // Run immediately on start
   runSync();
 
-  // Run when device comes back online
   const onOnline = () => {
     console.log('[BizPulse Sync] Device back online — syncing...');
     runSync();
   };
   window.addEventListener('online', onOnline);
 
-  // Safety net: poll every 30 seconds for flaky connections
   syncInterval = setInterval(() => {
     runSync();
   }, 30_000);
 
-  // Return cleanup function
   return () => {
     window.removeEventListener('online', onOnline);
     if (syncInterval) clearInterval(syncInterval);

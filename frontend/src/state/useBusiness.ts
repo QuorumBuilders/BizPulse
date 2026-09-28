@@ -29,7 +29,6 @@ export function useBusiness() {
     error: null,
   });
 
-  // On mount: hydrate auth tokens from storage and load local business
   useEffect(() => {
     let mounted = true;
 
@@ -80,7 +79,6 @@ export function useBusiness() {
   }) => {
     setState((s) => ({ ...s, isLoading: true, error: null }));
     try {
-      // Call register — on success the user must verify email before logging in
       await register({
         email: payload.email,
         display_name: payload.displayName,
@@ -88,7 +86,6 @@ export function useBusiness() {
         password_confirmation: payload.passwordConfirmation,
       });
 
-      // Store business locally (offline-first); sync happens after login
       const biz = await createBusiness({
         name: payload.businessName,
         type: payload.businessType,
@@ -98,7 +95,6 @@ export function useBusiness() {
       });
 
       setState({ isAuthenticated: false, isLoading: false, business: biz, error: null });
-      // Caller should redirect to a "check your email" / verify-email-pending screen
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Signup failed. Please try again.';
       setState((s) => ({ ...s, isLoading: false, error: msg }));
@@ -133,10 +129,8 @@ export function useBusiness() {
     patch: Partial<Omit<Business, 'id' | 'client_id' | 'synced' | 'updated_at'>>
   ) => {
     if (state.business) {
-      // Update existing business (settings change)
       await updateBusiness(state.business.client_id, patch);
     } else {
-      // Create business during onboarding (new user OR returning user on new device)
       await createBusiness({
         name: patch.name ?? '',
         type: patch.type ?? '',
