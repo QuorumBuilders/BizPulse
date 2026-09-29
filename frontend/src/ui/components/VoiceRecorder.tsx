@@ -119,7 +119,7 @@ export default function VoiceRecorder({
         ) : isRecording ? (
           'Stop recording'
         ) : (
-          'Record voice'
+          '🎙️ Speak tally'
         )}
       </button>
     </div>
