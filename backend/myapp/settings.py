@@ -93,12 +93,12 @@ REST_FRAMEWORK = {
     "anon": "60/minute",
     "user": "300/minute",
 
-    "login": "10/minute",
-    "register": "5/minute",
-    "password_reset": "5/hour",
-    "verification_resend": "5/hour",
+    "login": "20/minute",
+    "register": "10/minute",
+    "password_reset": "10/hour",
+    "verification_resend": "10/hour",
     "email_change": "5/hour",
-    "transcribe": "10/minute",
+    "transcribe": "15/minute",
 }
 }
 
