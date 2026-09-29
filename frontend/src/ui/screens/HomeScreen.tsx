@@ -27,6 +27,7 @@ import type {
 interface Props {
   business: Business;
   onGoToFollowUp?: () => void;
+  onOpenSettings?: () => void;
 }
 
 interface FormState {
@@ -235,7 +236,7 @@ function Toast({ message, type }: { message: string; type: 'success' | 'error' }
   );
 }
 
-export default function HomeScreen({ business, onGoToFollowUp }: Props) {
+export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }: Props) {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
