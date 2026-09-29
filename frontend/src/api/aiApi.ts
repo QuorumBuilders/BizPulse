@@ -71,6 +71,7 @@ export async function apiTranscribeAudio<T = unknown>(
   filename = 'recording.webm',
   _isRetry = false
 ): Promise<TranscriptionResponse<T>> {
+  console.log("apiTranscribe: ",audio, intent, filename);
   const token = getAccessToken();
   const formData = new FormData();
 

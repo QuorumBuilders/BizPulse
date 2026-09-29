@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -17,14 +16,17 @@ import {
 } from '@/domain/derivations';
 import { useDashboard } from '@/state/useDashboard';
 import { useFollowUpList } from '@/state/useFollowUpList';
-import type { Business, CreditLine, DailyTally, CreditRecord, Customer } from '@/domain/types';
+import type { Business, CreditLine, DailyTally, CreditRecord } from '@/domain/types';
 import SyncIndicator from '@/ui/components/SyncIndicator';
-import { parseVoiceTranscript } from '@/domain/voiceParser';
+import VoiceRecorder from '../components/VoiceRecorder';
+import type {
+  DailyTallyExtractedData,
+  TranscriptionResponse,
+} from '@/api/aiApi';
 
 interface Props {
   business: Business;
   onGoToFollowUp?: () => void;
-  onOpenSettings?: () => void;
 }
 
 interface FormState {
@@ -233,7 +235,7 @@ function Toast({ message, type }: { message: string; type: 'success' | 'error' }
   );
 }
 
-export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }: Props) {
+export default function HomeScreen({ business, onGoToFollowUp }: Props) {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -283,65 +285,6 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
-  };
-
-  const [isListening, setIsListening] = useState(false);
-  const [voiceHeard, setVoiceHeard] = useState<string | null>(null);
-
-  const startVoiceInput = () => {
-    const SpeechRec = typeof window !== 'undefined' && (
-      (window as unknown as { SpeechRecognition?: any }).SpeechRecognition ||
-      (window as unknown as { webkitSpeechRecognition?: any }).webkitSpeechRecognition
-    );
-
-    if (!SpeechRec) {
-      showToast('Speech recognition not supported in this browser. Please type your numbers.', 'error');
-      return;
-    }
-
-    try {
-      const recognition = new SpeechRec();
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.lang = business.language === 'yo' ? 'yo-NG' : business.language === 'pcm' ? 'pcm-NG' : 'en-NG';
-
-      recognition.onstart = () => {
-        setIsListening(true);
-        setVoiceHeard(null);
-      };
-
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setVoiceHeard(transcript);
-        const parsed = parseVoiceTranscript(transcript);
-
-        setForm((prev) => {
-          const next = { ...prev };
-          if (parsed.totalSold !== undefined) next.totalSold = formatMoneyInput(parsed.totalSold);
-          if (parsed.expenses !== undefined) next.expenses = formatMoneyInput(parsed.expenses);
-          if (parsed.creditLines.length > 0) {
-            next.creditLines = parsed.creditLines.map((c) => ({ customerName: c.customerName, amount: c.amount }));
-          }
-          return next;
-        });
-
-        showToast('Voice tally populated! Check your figures below.', 'success');
-      };
-
-      recognition.onerror = () => {
-        setIsListening(false);
-        showToast('Could not recognize voice. Please type your numbers.', 'error');
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
-      recognition.start();
-    } catch {
-      setIsListening(false);
-      showToast('Microphone error. Please type your numbers.', 'error');
-    }
   };
 
   const addCreditLine = () => {
@@ -425,6 +368,43 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
     setShowConfirm(true);
   };
 
+  // Voice recorder result handler
+
+      const handleVoiceResult = (
+        result: TranscriptionResponse<DailyTallyExtractedData>
+      ) => {
+        const extracted = result.results;
+
+        setForm((f: FormState) => {
+          const cashSales = extracted.cash_sales
+            ? parseMoneyInput(extracted.cash_sales)
+            : null;
+
+          const totalSold =
+            cashSales !== null
+              ? cashSales + (todaySummary?.creditSales ?? 0)
+              : f.totalSold;
+
+          return {
+            ...f,
+            totalSold:
+              cashSales !== null
+                ? formatMoneyInput(String(totalSold))
+                : f.totalSold,
+
+            expenses:
+              extracted.expenses !== null
+                ? formatMoneyInput(extracted.expenses)
+                : f.expenses,
+
+            note:
+              extracted.note !== null
+                ? extracted.note
+                : f.note,
+          };
+        });
+      };
+
   return (
     <div className="page fade-in" style={{ padding: 0 }}>
       <header
@@ -464,389 +444,286 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
 
         <div className="tally-workspace-split">
           <div className="flex flex-col gap-4">
-        {todaySummary?.tally && (
-          <div className="card card--glow-emerald fade-in">
-            <div className="section-header" style={{ marginBottom: 12 }}>
-              <span className="section-title">Today so far</span>
-              <span className="badge badge--paid">✓ Saved</span>
-            </div>
-            <div className="flex justify-between">
-              <div>
-                <div className="metric-label">Total sold</div>
-                <div className="metric-value metric-value--emerald" style={{ fontSize: '1.5rem' }}>
-                  {formatNaira(todaySummary.totalSales)}
+            {todaySummary?.tally && (
+              <div className="card card--glow-emerald fade-in">
+                <div className="section-header" style={{ marginBottom: 12 }}>
+                  <span className="section-title">Today so far</span>
+                  <span className="badge badge--paid">✓ Saved</span>
                 </div>
+                <div className="flex justify-between">
+                  <div>
+                    <div className="metric-label">Total sold</div>
+                    <div className="metric-value metric-value--emerald" style={{ fontSize: '1.5rem' }}>
+                      {formatNaira(todaySummary.totalSales)}
+                    </div>
+                  </div>
+                  {todaySummary.creditSales > 0 && (
+                    <div style={{ textAlign: 'right' }}>
+                      <div className="metric-label">On credit</div>
+                      <div className="metric-value metric-value--amber" style={{ fontSize: '1.5rem' }}>
+                        {formatNaira(todaySummary.creditSales)}
+                      </div>
+                    </div>
+                  )}
+                  {(todaySummary.tally.expenses > 0) && (
+                    <div style={{ textAlign: 'right' }}>
+                      <div className="metric-label">Expenses</div>
+                      <div className="metric-value" style={{ fontSize: '1.5rem', color: 'var(--color-rose)' }}>
+                        {formatNaira(todaySummary.tally.expenses)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-muted mt-2">
+                  Tap fields below to update today&apos;s tally.
+                </p>
               </div>
-              {todaySummary.creditSales > 0 && (
-                <div style={{ textAlign: 'right' }}>
-                  <div className="metric-label">On credit</div>
-                  <div className="metric-value metric-value--amber" style={{ fontSize: '1.5rem' }}>
-                    {formatNaira(todaySummary.creditSales)}
+            )}
+
+            <div className="card card--elevated">
+              <div className="section-header">
+                <h2 style={{ fontSize: '1rem' }}>Today&apos;s tally</h2>
+                {isSaving && <div className="spinner" style={{ width: 18, height: 18 }} />}
+                <VoiceRecorder intent="daily_tally" onResult={handleVoiceResult} />
+              </div>
+
+              <div className="flex flex-col gap-4">
+                {/* Total Sold */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="total-sold" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <rect x="2" y="4" width="20" height="16" rx="2" />
+                      <line x1="2" y1="10" x2="22" y2="10" />
+                    </svg>
+                    Total sold today (₦)
+                  </label>
+                  <div className="relative">
+                    <span style={{
+                      position: 'absolute', left: 14, top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: 'var(--color-text-muted)', fontSize: '1.25rem', pointerEvents: 'none',
+                    }}>₦</span>
+                    <input
+                      id="total-sold"
+                      className="form-input form-input--money"
+                      type="text"
+                      placeholder="0"
+                      value={form.totalSold}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f: FormState) => ({ ...f, totalSold: formatMoneyInput(e.target.value) }))}
+                      inputMode="numeric"
+                      style={{ paddingLeft: 36 }}
+                    />
                   </div>
                 </div>
-              )}
-              {(todaySummary.tally.expenses > 0) && (
-                <div style={{ textAlign: 'right' }}>
-                  <div className="metric-label">Expenses</div>
-                  <div className="metric-value" style={{ fontSize: '1.5rem', color: 'var(--color-rose)' }}>
-                    {formatNaira(todaySummary.tally.expenses)}
+
+                {/* Expenses */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="expenses" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <polyline points="23 18 13.5 8.5 8.5 13.5 1 6" />
+                      <polyline points="17 18 23 18 23 12" />
+                    </svg>
+                    Total expenses (₦)
+                  </label>
+                  <div className="relative">
+                    <span style={{
+                      position: 'absolute', left: 14, top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: 'var(--color-text-muted)', fontSize: '1.25rem', pointerEvents: 'none',
+                    }}>₦</span>
+                    <input
+                      id="expenses"
+                      className="form-input form-input--money"
+                      type="text"
+                      placeholder="0"
+                      value={form.expenses}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f: FormState) => ({ ...f, expenses: formatMoneyInput(e.target.value) }))}
+                      inputMode="numeric"
+                      style={{ paddingLeft: 36 }}
+                    />
                   </div>
                 </div>
-              )}
-            </div>
-            <p className="text-xs text-muted mt-2">
-              Tap fields below to update today&apos;s tally.
-            </p>
-          </div>
-        )}
 
-        <div className="card card--elevated">
-          <div className="section-header">
-            <h2 style={{ fontSize: '1rem' }}>Today&apos;s tally</h2>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                id="voice-tally-btn"
-                className={`btn btn--sm ${isListening ? 'btn--primary' : 'btn--secondary'}`}
-                onClick={startVoiceInput}
-                disabled={isListening}
-                style={{ padding: '6px 12px', fontSize: '0.8rem', gap: 6 }}
-                title="Speak today's tally"
-              >
-                {isListening ? (
-                  <>
-                    <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
-                    Listening…
-                  </>
-                ) : (
-                  <>🎙️ Speak tally</>
-                )}
-              </button>
-              {isSaving && <div className="spinner" style={{ width: 18, height: 18 }} />}
-            </div>
-          </div>
+                {/* Credit section */}
+                <div>
+                  <div className="section-header" style={{ marginBottom: 8 }}>
+                    <span className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                      </svg>
+                      On credit — optional
+                    </span>
+                    <button
+                      id="add-credit-btn"
+                      type="button"
+                      className="btn btn--ghost btn--sm"
+                      onClick={addCreditLine}
+                      style={{ padding: '4px 10px' }}
+                    >
+                      + Add debtor
+                    </button>
+                  </div>
 
-          {isListening && (
-            <div
-              className="card fade-in"
-              style={{
-                background: 'rgba(16,185,129,0.08)',
-                borderColor: 'var(--color-emerald)',
-                padding: '12px 16px',
-                marginBottom: 12,
-              }}
-            >
-              <p className="text-xs font-semibold" style={{ color: 'var(--color-emerald-light)' }}>
-                🎙️ Listening... speak clearly:
-              </p>
-              <p className="text-xs text-muted mt-1">
-                e.g. &ldquo;Sold 25000, expenses 4000, and Bola took 5000 credit&rdquo;
-              </p>
-            </div>
-          )}
+                  {form.creditLines.length === 0 ? (
+                    <p className="text-xs text-muted" style={{ paddingBottom: 4 }}>
+                      No credit sales today? Leave this empty — it&apos;s optional.
+                    </p>
+                  ) : (
+                    <div className="flex flex-col">
+                      {form.creditLines.map((line: CreditLine, idx: number) => (
+                        <CreditLineInput
+                          key={idx}
+                          line={line}
+                          index={idx}
+                          onChange={updateCreditLine}
+                          onRemove={removeCreditLine}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-          {voiceHeard && !isListening && (
-            <div
-              className="card fade-in"
-              style={{
-                background: 'var(--color-surface-overlay)',
-                borderColor: 'var(--color-border)',
-                padding: '10px 14px',
-                marginBottom: 12,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <p className="text-xs text-muted" style={{ fontStyle: 'italic' }}>
-                🗣️ Heard: &ldquo;{voiceHeard}&rdquo;
-              </p>
-              <button
-                type="button"
-                className="btn btn--ghost btn--sm"
-                onClick={() => setVoiceHeard(null)}
-                style={{ padding: '2px 6px', fontSize: '0.75rem' }}
-              >
-                ✕
-              </button>
-            </div>
-          )}
+                {/* Note */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="note" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                    Note (optional)
+                  </label>
+                  <textarea
+                    id="note"
+                    className="form-input"
+                    placeholder="e.g. Bought market ticket, light bill"
+                    value={form.note}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm((f: FormState) => ({ ...f, note: e.target.value }))}
+                    rows={2}
+                    style={{ resize: 'none' }}
+                  />
+                </div>
 
-          <div className="flex flex-col gap-4">
-            {/* Total Sold */}
-            <div className="form-group">
-              <label className="form-label" htmlFor="total-sold" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <rect x="2" y="4" width="20" height="16" rx="2" />
-                  <line x1="2" y1="10" x2="22" y2="10" />
-                </svg>
-                Total sold today (₦)
-              </label>
-              <div className="relative">
-                <span style={{
-                  position: 'absolute', left: 14, top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--color-text-muted)', fontSize: '1.25rem', pointerEvents: 'none',
-                }}>₦</span>
-                <input
-                  id="total-sold"
-                  className="form-input form-input--money"
-                  type="text"
-                  placeholder="0"
-                  value={form.totalSold}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f: FormState) => ({ ...f, totalSold: formatMoneyInput(e.target.value) }))}
-                  inputMode="numeric"
-                  style={{ paddingLeft: 36 }}
-                />
-              </div>
-            </div>
-
-            {/* Expenses */}
-            <div className="form-group">
-              <label className="form-label" htmlFor="expenses" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <polyline points="23 18 13.5 8.5 8.5 13.5 1 6" />
-                  <polyline points="17 18 23 18 23 12" />
-                </svg>
-                Total expenses (₦)
-              </label>
-              <div className="relative">
-                <span style={{
-                  position: 'absolute', left: 14, top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--color-text-muted)', fontSize: '1.25rem', pointerEvents: 'none',
-                }}>₦</span>
-                <input
-                  id="expenses"
-                  className="form-input form-input--money"
-                  type="text"
-                  placeholder="0"
-                  value={form.expenses}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f: FormState) => ({ ...f, expenses: formatMoneyInput(e.target.value) }))}
-                  inputMode="numeric"
-                  style={{ paddingLeft: 36 }}
-                />
-              </div>
-            </div>
-
-            {/* Credit section */}
-            <div>
-              <div className="section-header" style={{ marginBottom: 8 }}>
-                <span className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                  </svg>
-                  On credit — optional
-                </span>
                 <button
-                  id="add-credit-btn"
+                  id="save-tally-btn"
                   type="button"
-                  className="btn btn--ghost btn--sm"
-                  onClick={addCreditLine}
-                  style={{ padding: '4px 10px' }}
+                  className={`btn btn--primary ${isSaveSuccess ? 'btn--save-success' : ''}`}
+                  onClick={handleSubmitForm}
+                  disabled={isSaving}
+                  style={{
+                    transition: 'background-color 0.2s ease, transform 0.1s ease',
+                  }}
                 >
-                  + Add debtor
+                  {isSaving ? (
+                    <><span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Saving…</>
+                  ) : isSaveSuccess ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      Saved!
+                    </span>
+                  ) : (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      Save today&apos;s tally
+                    </span>
+                  )}
                 </button>
               </div>
-
-              {form.creditLines.length === 0 ? (
-                <p className="text-xs text-muted" style={{ paddingBottom: 4 }}>
-                  No credit sales today? Leave this empty — it&apos;s optional.
-                </p>
-              ) : (
-                <div className="flex flex-col">
-                  {form.creditLines.map((line: CreditLine, idx: number) => (
-                    <CreditLineInput
-                      key={idx}
-                      line={line}
-                      index={idx}
-                      onChange={updateCreditLine}
-                      onRemove={removeCreditLine}
-                    />
-                  ))}
-                </div>
-              )}
             </div>
-
-            {/* Note */}
-            <div className="form-group">
-              <label className="form-label" htmlFor="note" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                </svg>
-                Note (optional)
-              </label>
-              <textarea
-                id="note"
-                className="form-input"
-                placeholder="e.g. Bought market ticket, light bill"
-                value={form.note}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm((f: FormState) => ({ ...f, note: e.target.value }))}
-                rows={2}
-                style={{ resize: 'none' }}
-              />
-            </div>
-
-            <button
-              id="save-tally-btn"
-              type="button"
-              className={`btn btn--primary ${isSaveSuccess ? 'btn--save-success' : ''}`}
-              onClick={handleSubmitForm}
-              disabled={isSaving}
-              style={{
-                transition: 'background-color 0.2s ease, transform 0.1s ease',
-              }}
-            >
-              {isSaving ? (
-                <><span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Saving…</>
-              ) : isSaveSuccess ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  Saved!
-                </span>
-              ) : (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  Save today&apos;s tally
-                </span>
-              )}
-            </button>
           </div>
 
-          {/* Voice toggle hint */}
-          <div className="text-center mt-4">
-            {business.voice_enabled ? (
-              <span
-                className="badge badge--paid"
-                style={{ fontSize: '0.75rem', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-              >
-                🎙️ Voice Tally Enabled
-              </span>
-            ) : (
-              <p className="text-xs text-muted">
-                Prefer to speak this?{' '}
-                {onOpenSettings ? (
-                  <button
-                    type="button"
-                    onClick={onOpenSettings}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--color-emerald-light)',
-                      textDecoration: 'underline',
-                      cursor: 'pointer',
-                      padding: 0,
-                      font: 'inherit',
-                      fontSize: 'inherit',
-                    }}
-                  >
-                    Turn on in settings
-                  </button>
-                ) : (
-                  'Turn on in settings.'
-                )}
-              </p>
+          <div className="flex flex-col gap-4">
+            {todaySummary && todaySummary.credits.length > 0 && (
+              <div>
+                <div className="section-header">
+                  <span className="section-title">Credit given today</span>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {todaySummary.credits.map((cr: CreditRecord) => (
+                    <div key={cr.client_id} className="card" style={{ padding: '12px 16px' }}>
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium" style={{ fontSize: '0.9rem' }}>
+                          {customersMap[cr.customer_client_id] || 'Debtor'}
+                        </span>
+                        <span className="font-semibold text-amber">{formatNaira(cr.amount)}</span>
+                      </div>
+                      {cr.due_date && (
+                        <p className="text-xs text-muted mt-1">
+                          Due: {formatDate(cr.due_date)}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {topDebtors.length > 0 && (
+              <div>
+                <div className="section-header">
+                  <span className="section-title">Who to follow up with</span>
+                  {onGoToFollowUp && (
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--sm"
+                      onClick={onGoToFollowUp}
+                      style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+                    >
+                      See all →
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  {topDebtors.map((debtor) => (
+                    <div
+                      key={debtor.customer.client_id}
+                      className={`debtor-item ${debtor.isOverdue ? 'debtor-item--overdue' : ''}`}
+                    >
+                      <div
+                        className={`debtor-avatar ${debtor.isOverdue ? 'debtor-avatar--overdue' : ''}`}
+                      >
+                        {debtor.customer.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="font-medium truncate" style={{ fontSize: '0.875rem' }}>
+                          {debtor.customer.name}
+                        </div>
+                        {debtor.oldestDueDate && (
+                          <div className="text-xs text-muted">
+                            Due: {formatDate(debtor.oldestDueDate)}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <div
+                          style={{
+                            fontFamily: "'Space Grotesk', sans-serif",
+                            fontWeight: 700,
+                            fontSize: '0.875rem',
+                            color: debtor.isOverdue ? 'var(--color-rose)' : 'var(--color-amber-light)',
+                          }}
+                        >
+                          {formatNaira(debtor.totalOutstanding)}
+                        </div>
+                        {debtor.isOverdue && (
+                          <span className="badge badge--overdue" style={{ fontSize: '0.6rem', marginTop: 2, display: 'inline-block' }}>
+                            Overdue
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>
-
-          </div>
-
-          <div className="flex flex-col gap-4">
-        {todaySummary && todaySummary.credits.length > 0 && (
-          <div>
-            <div className="section-header">
-              <span className="section-title">Credit given today</span>
-            </div>
-            <div className="flex flex-col gap-2">
-              {todaySummary.credits.map((cr: CreditRecord) => (
-                <div key={cr.client_id} className="card" style={{ padding: '12px 16px' }}>
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium" style={{ fontSize: '0.9rem' }}>
-                      {customersMap[cr.customer_client_id] || 'Debtor'}
-                    </span>
-                    <span className="font-semibold text-amber">{formatNaira(cr.amount)}</span>
-                  </div>
-                  {cr.due_date && (
-                    <p className="text-xs text-muted mt-1">
-                      Due: {formatDate(cr.due_date)}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {topDebtors.length > 0 && (
-          <div>
-            <div className="section-header">
-              <span className="section-title">Who to follow up with</span>
-              {onGoToFollowUp && (
-                <button
-                  type="button"
-                  className="btn btn--ghost btn--sm"
-                  onClick={onGoToFollowUp}
-                  style={{ padding: '2px 8px', fontSize: '0.75rem' }}
-                >
-                  See all →
-                </button>
-              )}
-            </div>
-            <div className="flex flex-col gap-2">
-              {topDebtors.map((debtor) => (
-                <div
-                  key={debtor.customer.client_id}
-                  className={`debtor-item ${debtor.isOverdue ? 'debtor-item--overdue' : ''}`}
-                >
-                  <div
-                    className={`debtor-avatar ${debtor.isOverdue ? 'debtor-avatar--overdue' : ''}`}
-                  >
-                    {debtor.customer.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="font-medium truncate" style={{ fontSize: '0.875rem' }}>
-                      {debtor.customer.name}
-                    </div>
-                    {debtor.oldestDueDate && (
-                      <div className="text-xs text-muted">
-                        Due: {formatDate(debtor.oldestDueDate)}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div
-                      style={{
-                        fontFamily: "'Space Grotesk', sans-serif",
-                        fontWeight: 700,
-                        fontSize: '0.875rem',
-                        color: debtor.isOverdue ? 'var(--color-rose)' : 'var(--color-amber-light)',
-                      }}
-                    >
-                      {formatNaira(debtor.totalOutstanding)}
-                    </div>
-                    {debtor.isOverdue && (
-                      <span className="badge badge--overdue" style={{ fontSize: '0.6rem', marginTop: 2, display: 'inline-block' }}>Overdue</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-          </div>
-
-        </div>
-
       </div>
 
       {showConfirm && (
