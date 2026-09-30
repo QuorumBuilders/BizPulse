@@ -157,12 +157,14 @@ class DailyTallyListCreateView(StandardListCreateAPIView):
 
     def perform_create(self, serializer):
         business = self.get_business()
-        try:
-            
+        instance = self.get_queryset.get(**{business:business,date:serializer.validated_data.get("date")})
+        if instance:
+            # this is a temporary patch. The update logic should be removed 
+            # in the next major update.
+            serializer.update(instance, serializer.validated_data)
+        else:
             serializer.save(business=business)
-        except IntegrityError:
-            raise ConflictError("A daily tally already exists for this date.")
-
+            
 
 class DailyTallyDetailView(StandardRetrieveUpdateDestroyAPIView):
     serializer_class = DailyTallySerializer
