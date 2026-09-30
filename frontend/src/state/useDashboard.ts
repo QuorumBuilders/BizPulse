@@ -14,6 +14,7 @@ import {
   getCreditRecordsForBusiness,
 } from '../data/repositories/creditRecordRepo';
 import { getAllRepaymentsForBusiness } from '../data/repositories/repaymentRepo';
+import { subscribeSyncStatus } from '../data/sync';
 import {
   buildDashboardMetrics,
   generateInsights,
@@ -120,6 +121,12 @@ export function useDashboard(business: Business | null): DashboardState {
 
   useEffect(() => {
     compute();
+    const unsubscribe = subscribeSyncStatus((status) => {
+      if (status === 'success') {
+        compute();
+      }
+    });
+    return unsubscribe;
   }, [compute]);
 
   return { metrics, insights, isLoading, period, setPeriod, refresh: compute };
