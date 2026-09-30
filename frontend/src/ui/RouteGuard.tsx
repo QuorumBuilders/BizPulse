@@ -25,7 +25,7 @@ const PUBLIC_AUTH_ROUTES = [
 export default function RouteGuard({ children }: RouteGuardProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, isLoading, business } = useBusiness();
+  const { isAuthenticated, bootStatus, business } = useBusiness();
 
   // Boot hydration: run once on mount to exchange stored refresh token for
   // an access token. Without this, isHydrating stays true forever and the app
@@ -41,9 +41,15 @@ export default function RouteGuard({ children }: RouteGuardProps) {
   }, []);
 
   useEffect(() => {
-    if (isLoading) return;
+    // CRITICAL: Never make routing decisions while the boot sequence is still
+    // in progress. 'pending' covers the entire window from hook mount through
+    // init() completing. 'error' is treated as resolved (allow redirect logic
+    // to act on isAuthenticated + business state).
+    if (bootStatus === 'pending') return;
 
-    const isPublic = PUBLIC_AUTH_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}?`));
+    const isPublic = PUBLIC_AUTH_ROUTES.some(
+      (route) => pathname === route || pathname.startsWith(`${route}?`)
+    );
     const hasBusiness = !!business;
 
     if (!isAuthenticated) {
@@ -58,14 +64,19 @@ export default function RouteGuard({ children }: RouteGuardProps) {
       }
     } else {
       // Authenticated with business → skip auth and onboarding screens
-      if (pathname === '/login' || pathname === '/signup' || pathname === '/onboarding' || pathname === '/verify-email-pending') {
+      if (
+        pathname === '/login' ||
+        pathname === '/signup' ||
+        pathname === '/onboarding' ||
+        pathname === '/verify-email-pending'
+      ) {
         router.replace('/dashboard');
       }
     }
-  }, [isAuthenticated, isLoading, business, pathname, router]);
+  }, [isAuthenticated, bootStatus, business, pathname, router]);
 
-  // Loading / bootstrap state: resolves auth first, never flashing wrong screens
-  if (isLoading) {
+  // Show spinner while boot sequence is in progress.
+  if (bootStatus === 'pending') {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ minHeight: '100dvh' }}>
         <div className="flex flex-col items-center gap-4">

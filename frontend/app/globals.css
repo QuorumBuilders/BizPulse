@@ -1565,3 +1565,22 @@ input[type="number"] { -moz-appearance: textfield; }
   background: linear-gradient(135deg, var(--color-emerald), #059669) !important;
   color: #fff !important;
 }
+
+/* Responsive Metric Display: full amount on desktop, compact on mobile */
+@media (min-width: 768px) {
+  .metric-value-desktop {
+    display: inline-block !important;
+  }
+  .metric-value-mobile {
+    display: none !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .metric-value-desktop {
+    display: none !important;
+  }
+  .metric-value-mobile {
+    display: inline-block !important;
+  }
+}

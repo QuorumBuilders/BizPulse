@@ -23,6 +23,7 @@ import {
   buildDebtorSummaries,
   generateInsights,
   formatNaira,
+  formatNairaCompact,
   formatAmount,
   formatMoneyInput,
   parseMoneyInput,
@@ -427,6 +428,33 @@ describe('formatNaira', () => {
 
   it('handles zero', () => {
     expect(formatNaira(0)).toBe('₦0');
+  });
+});
+
+describe('formatNairaCompact', () => {
+  it('formats 6-figure values compactly', () => {
+    expect(formatNairaCompact(150_000)).toBe('₦150K');
+    expect(formatNairaCompact(850_000)).toBe('₦850K');
+  });
+
+  it('formats 7-figure values compactly', () => {
+    expect(formatNairaCompact(1_500_000)).toBe('₦1.5M');
+    expect(formatNairaCompact(5_000_000)).toBe('₦5M');
+  });
+
+  it('formats 8-figure values compactly', () => {
+    expect(formatNairaCompact(20_000_000)).toBe('₦20M');
+    expect(formatNairaCompact(85_000_000)).toBe('₦85M');
+  });
+
+  it('handles small amounts below 10,000 without abbreviation', () => {
+    expect(formatNairaCompact(5_000)).toBe('₦5,000');
+    expect(formatNairaCompact(0)).toBe('₦0');
+  });
+
+  it('handles negative values correctly', () => {
+    expect(formatNairaCompact(-1_500_000)).toBe('-₦1.5M');
+    expect(formatNairaCompact(-20_000_000)).toBe('-₦20M');
   });
 });
 

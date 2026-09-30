@@ -89,8 +89,15 @@ export default function LoginScreen({ onLogin, onGoToSignup, onGoToForgotPasswor
     setDemoError('');
     try {
       const loginFn = onLogin || defaultLogin;
-      await loginFn('addergranzl@example.com', 'DemoPassword123!');
-      router.replace('/dashboard');
+      // Await the login result and route based on actual resolved business,
+      // matching the regular login pattern. Never navigate unconditionally.
+      const res = await loginFn('addergranzl@example.com', 'DemoPassword123!') as { user?: any; business?: unknown } | undefined;
+      const biz = res?.business ?? (await getBusiness(res?.user));
+      if (biz) {
+        router.replace('/dashboard');
+      } else {
+        router.replace('/onboarding');
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Demo login failed. Please try again.';
       setDemoError(msg);
