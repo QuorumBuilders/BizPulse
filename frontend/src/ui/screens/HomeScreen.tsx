@@ -1,12 +1,15 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { db } from '@/data/db';
 import { upsertTallyForDate } from '@/data/repositories/dailyTallyRepo';
 import { findOrCreateCustomer, getCustomers } from '@/data/repositories/customerRepo';
 import { createCreditRecord, getCreditRecordsForDate } from '@/data/repositories/creditRecordRepo';
+import { generateClientId, nowISO } from '@/data/repositories/utils';
+import { apiListDailyTallies } from '@/api/client';
 import {
   formatNaira,
+  formatNairaCompact,
   formatMoneyInput,
   parseMoneyInput,
   todayISO,
@@ -252,11 +255,47 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
   const { debtors } = useFollowUpList(business);
   const topDebtors = debtors.slice(0, 3);
 
+  const showToast = useCallback((message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  }, []);
+
+  const hasNotifiedExistingRef = useRef(false);
+
   const loadTodaySummary = useCallback(async () => {
-    const tally = await db.daily_tallies
+    let tally = await db.daily_tallies
       .where('[business_client_id+date]')
       .equals([business.client_id, today])
       .first() ?? null;
+
+    // Check backend if local is empty and business has server ID
+    if (!tally && business.id && typeof navigator !== 'undefined' && navigator.onLine) {
+      try {
+        const serverTallies = await apiListDailyTallies(business.id, { from_date: today, to_date: today });
+        const st = serverTallies.find((t) => t.date === today);
+        if (st) {
+          tally = {
+            client_id: generateClientId(),
+            id: st.id,
+            business_client_id: business.client_id,
+            date: st.date,
+            cash_sales: Number(st.cash_sales) || 0,
+            expenses: Number(st.expenses) || 0,
+            note: st.note || '',
+            synced: true,
+            updated_at: nowISO(),
+          };
+          await db.daily_tallies.put(tally);
+          if (!hasNotifiedExistingRef.current) {
+            hasNotifiedExistingRef.current = true;
+            showToast("You've already logged today's tally — here's what you saved", 'success');
+          }
+        }
+      } catch (err) {
+        console.warn('[BizPulse] Failed to query today tally from server:', err);
+      }
+    }
+
     const credits = await getCreditRecordsForDate(business.client_id, today);
     const creditSales = creditSalesForDate(credits, today);
     const totalSales = totalSalesForDay(tally ?? undefined, creditSales);
@@ -277,16 +316,11 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
         note: tally.note,
       }));
     }
-  }, [business.client_id, today]);
+  }, [business.client_id, business.id, today, showToast]);
 
   useEffect(() => {
     loadTodaySummary();
   }, [loadTodaySummary]);
-
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
 
   const addCreditLine = () => {
     setForm((f: FormState) => ({
@@ -631,7 +665,7 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
-                      Save today&apos;s tally
+                      {todaySummary?.tally ? "Update today's tally" : "Save today's tally"}
                     </span>
                   )}
                 </button>
@@ -652,7 +686,12 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
                         <span className="font-medium" style={{ fontSize: '0.9rem' }}>
                           {customersMap[cr.customer_client_id] || 'Debtor'}
                         </span>
-                        <span className="font-semibold text-amber">{formatNaira(cr.amount)}</span>
+                        <span className="font-semibold text-amber">
+                          <span className="metric-value-desktop">{formatNaira(cr.amount)}</span>
+                          <span className="metric-value-mobile" title={formatNaira(cr.amount)}>
+                            {formatNairaCompact(cr.amount)}
+                          </span>
+                        </span>
                       </div>
                       {cr.due_date && (
                         <p className="text-xs text-muted mt-1">
@@ -710,7 +749,10 @@ export default function HomeScreen({ business, onGoToFollowUp, onOpenSettings }:
                             color: debtor.isOverdue ? 'var(--color-rose)' : 'var(--color-amber-light)',
                           }}
                         >
-                          {formatNaira(debtor.totalOutstanding)}
+                          <span className="metric-value-desktop">{formatNaira(debtor.totalOutstanding)}</span>
+                          <span className="metric-value-mobile" title={formatNaira(debtor.totalOutstanding)}>
+                            {formatNairaCompact(debtor.totalOutstanding)}
+                          </span>
                         </div>
                         {debtor.isOverdue && (
                           <span className="badge badge--overdue" style={{ fontSize: '0.6rem', marginTop: 2, display: 'inline-block' }}>

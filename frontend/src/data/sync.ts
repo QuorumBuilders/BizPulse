@@ -38,6 +38,7 @@ import {
   apiListRepayments,
   apiCreateRepayment,
   ApiError,
+  CustomerResponse,
 } from '../api/client';
 import { _setTokens as setTokensInStore, authLogout, getUser } from '../state/authStore';
 import { generateClientId, nowISO } from './repositories/utils';
@@ -167,16 +168,42 @@ async function pushEntry(entry: OutboxEntry): Promise<void> {
         const tally = await db.daily_tallies.where('client_id').equals(client_id).first();
         if (!tally || !currentBiz?.id) return;
         if (operation === 'create') {
-          const res = await apiCreateDailyTally(currentBiz.id, {
-            date: tally.date,
-            cash_sales: tally.cash_sales,
-            expenses: tally.expenses,
-            note: tally.note,
-          });
-          await db.daily_tallies.where('client_id').equals(client_id).modify({
-            id: res.id,
-            synced: true,
-          });
+          try {
+            const res = await apiCreateDailyTally(currentBiz.id, {
+              date: tally.date,
+              cash_sales: tally.cash_sales,
+              expenses: tally.expenses,
+              note: tally.note,
+            });
+            await db.daily_tallies.where('client_id').equals(client_id).modify({
+              id: res.id,
+              synced: true,
+            });
+          } catch (err) {
+            if (err instanceof ApiError && err.status === 409) {
+              console.info(`[BizPulse Sync] 409 Conflict for daily tally date ${tally.date}. Reconciling with existing backend tally...`);
+              const existingTallies = await apiListDailyTallies(currentBiz.id, {
+                from_date: tally.date,
+                to_date: tally.date,
+              });
+              const existingTally = existingTallies.find((t) => t.date === tally.date);
+              if (existingTally) {
+                // Link local tally with server ID
+                await db.daily_tallies.where('client_id').equals(client_id).modify({
+                  id: existingTally.id,
+                  synced: true,
+                });
+                // Update existing backend tally with local edits via PATCH
+                await apiUpdateDailyTally(currentBiz.id, existingTally.id, {
+                  cash_sales: tally.cash_sales,
+                  expenses: tally.expenses,
+                  note: tally.note,
+                });
+                return;
+              }
+            }
+            throw err;
+          }
         } else {
           if (!tally.id) return;
           await apiUpdateDailyTally(currentBiz.id, tally.id, {
@@ -291,58 +318,68 @@ export async function pullServerData(business: Business): Promise<void> {
 
   try {
     // 1. Customers
+    let serverCustomers: CustomerResponse[] = [];
+    let customersPullFailed = false;
+
     try {
-      const serverCustomers = await apiListCustomers(business.id);
-      if (serverCustomers && serverCustomers.length > 0) {
-        for (const sc of serverCustomers) {
-          let local = await db.customers
-            .where('business_client_id')
-            .equals(business.client_id)
-            .filter((c) => c.id === sc.id)
-            .first();
-
-          if (!local) {
-            const sameNameList = await db.customers
-              .where('business_client_id')
-              .equals(business.client_id)
-              .toArray();
-            local = sameNameList.find(
-              (c) => c.name.toLowerCase().trim() === sc.name.toLowerCase().trim()
-            );
-          }
-
-          if (local) {
-            if (!local.synced) {
-              if (local.id === undefined) {
-                await db.customers.where('client_id').equals(local.client_id).modify({ id: sc.id });
-              }
-            } else {
-              await db.customers.where('client_id').equals(local.client_id).modify({
-                id: sc.id,
-                name: sc.name,
-                phone: sc.phone || '',
-                business_client_id: business.client_id,
-                synced: true,
-              });
-            }
-          } else {
-            await db.customers.put({
-              client_id: generateClientId(),
-              id: sc.id,
-              business_client_id: business.client_id,
-              name: sc.name,
-              phone: sc.phone || '',
-              synced: true,
-              updated_at: nowISO(),
-            });
-          }
-        }
+      serverCustomers = await apiListCustomers(business.id);
+    } catch (firstErr) {
+      console.warn('[BizPulse Sync] Customers pull initial attempt failed, retrying...', firstErr);
+      try {
+        serverCustomers = await apiListCustomers(business.id);
+      } catch (retryErr) {
+        console.error('[BizPulse Sync] Customers pull failed after retry; aborting credit sync cycle to protect data integrity:', retryErr);
+        customersPullFailed = true;
       }
-    } catch (err) {
-      console.warn('[BizPulse Sync] Customers pull skipped:', err);
     }
 
-    // 2. Daily Tallies
+    if (!customersPullFailed && serverCustomers && serverCustomers.length > 0) {
+      for (const sc of serverCustomers) {
+        let local = await db.customers
+          .where('business_client_id')
+          .equals(business.client_id)
+          .filter((c) => c.id === sc.id)
+          .first();
+
+        if (!local) {
+          const sameNameList = await db.customers
+            .where('business_client_id')
+            .equals(business.client_id)
+            .toArray();
+          local = sameNameList.find(
+            (c) => c.name.toLowerCase().trim() === sc.name.toLowerCase().trim()
+          );
+        }
+
+        if (local) {
+          if (!local.synced) {
+            if (local.id === undefined) {
+              await db.customers.where('client_id').equals(local.client_id).modify({ id: sc.id });
+            }
+          } else {
+            await db.customers.where('client_id').equals(local.client_id).modify({
+              id: sc.id,
+              name: sc.name,
+              phone: sc.phone || '',
+              business_client_id: business.client_id,
+              synced: true,
+            });
+          }
+        } else {
+          await db.customers.put({
+            client_id: generateClientId(),
+            id: sc.id,
+            business_client_id: business.client_id,
+            name: sc.name,
+            phone: sc.phone || '',
+            synced: true,
+            updated_at: nowISO(),
+          });
+        }
+      }
+    }
+
+    // 2. Daily Tallies (independent of customer relationships)
     try {
       const serverTallies = await apiListDailyTallies(business.id);
       if (serverTallies && serverTallies.length > 0) {
@@ -396,16 +433,34 @@ export async function pullServerData(business: Business): Promise<void> {
     }
 
     // 3. Credit Records
+    // ABORT if customers pull failed: never write credit records without verified customers
+    if (customersPullFailed) {
+      console.warn('[BizPulse Sync] Credit records pull aborted because customer sync failed.');
+      return;
+    }
+
     try {
       const serverCredits = await apiListCreditRecords(business.id);
+
+      // Build customer map: server customer id -> local customer client_id
+      const localCustomers = await db.customers
+        .where('business_client_id')
+        .equals(business.client_id)
+        .toArray();
+      const customerByServerId = new Map<number, string>();
+      for (const c of localCustomers) {
+        if (c.id !== undefined) {
+          customerByServerId.set(c.id, c.client_id);
+        }
+      }
+
       if (serverCredits && serverCredits.length > 0) {
         for (const scr of serverCredits) {
-          const localCust = await db.customers
-            .where('business_client_id')
-            .equals(business.client_id)
-            .filter((c) => c.id === scr.customer)
-            .first();
-          const customerClientId = localCust ? localCust.client_id : '';
+          const customerClientId = customerByServerId.get(scr.customer);
+          if (!customerClientId) {
+            console.warn(`[BizPulse Sync] Skipping credit record ${scr.id}: customer server ID ${scr.customer} not found locally.`);
+            continue; // NEVER write credit record with empty customer_client_id!
+          }
 
           let local = await db.credit_records
             .where('business_client_id')
@@ -435,7 +490,7 @@ export async function pullServerData(business: Business): Promise<void> {
               await db.credit_records.where('client_id').equals(local.client_id).modify({
                 id: scr.id,
                 business_client_id: business.client_id,
-                customer_client_id: customerClientId || local.customer_client_id,
+                customer_client_id: customerClientId,
                 amount: Number(scr.amount) || 0,
                 issued_date: scr.issued_date,
                 due_date: scr.due_date ?? null,
@@ -488,6 +543,37 @@ export async function pullServerData(business: Business): Promise<void> {
             }
           } catch {
             // Repayment pull failure is non-blocking
+          }
+        }
+      }
+
+      // 4. Self-healing reconciliation pass:
+      // If any existing local credit_records have customer_client_id = '' or missing,
+      // backfill with matching customer_client_id using server credit record mapping.
+      const orphanedCredits = await db.credit_records
+        .where('business_client_id')
+        .equals(business.client_id)
+        .filter((cr) => !cr.customer_client_id || cr.customer_client_id === '')
+        .toArray();
+
+      if (orphanedCredits.length > 0 && serverCredits && serverCredits.length > 0) {
+        const serverCreditToCustomer = new Map<number, number>();
+        for (const scr of serverCredits) {
+          serverCreditToCustomer.set(scr.id, scr.customer);
+        }
+
+        for (const orphan of orphanedCredits) {
+          if (orphan.id !== undefined) {
+            const serverCustId = serverCreditToCustomer.get(orphan.id);
+            if (serverCustId !== undefined) {
+              const matchedClientId = customerByServerId.get(serverCustId);
+              if (matchedClientId) {
+                await db.credit_records.where('client_id').equals(orphan.client_id).modify({
+                  customer_client_id: matchedClientId,
+                });
+                console.log(`[BizPulse Sync] Self-healed orphaned credit record ${orphan.client_id} -> customer ${matchedClientId}`);
+              }
+            }
           }
         }
       }

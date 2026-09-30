@@ -22,7 +22,8 @@ export default function AppShell({
   initialTab = 'home',
   initialExport = false,
 }: AppShellProps = {}) {
-  const { isAuthenticated, isLoading, business, logout, saveBusiness } = useBusiness();
+  const { isAuthenticated, bootStatus, business, logout, saveBusiness } = useBusiness();
+  const isLoading = bootStatus === 'pending';
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [isExporting, setIsExporting] = useState(initialExport);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -49,7 +50,11 @@ export default function AppShell({
     );
   }
 
-  if (!business) {
+  if (!isAuthenticated || !business) {
+    // Unauthenticated users or authenticated users with no business:
+    // RouteGuard will redirect them. Render nothing here to avoid showing
+    // OnboardingScreen to a user who is in the middle of logging out.
+    if (!isAuthenticated) return null;
     return (
       <OnboardingScreen
         onComplete={saveBusiness}

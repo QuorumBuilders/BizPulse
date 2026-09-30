@@ -2,10 +2,11 @@
 
 import React, { useState } from 'react';
 import { useDashboard } from '@/state/useDashboard';
-import { formatNaira } from '@/domain/derivations';
+import { formatNaira, formatNairaCompact } from '@/domain/derivations';
 import type { Business } from '@/domain/types';
 import SyncIndicator from '@/ui/components/SyncIndicator';
 import { seedDemoData } from '@/data/seed';
+import { pullServerData } from '@/data/sync';
 import MetricCard from '@/ui/components/MetricCard';
 import { useFollowUpList } from '@/state/useFollowUpList';
 
@@ -19,6 +20,19 @@ export default function DashboardScreen({ business, onGoToExport, onGoToFollowUp
   const { metrics, insights, isLoading, period, setPeriod, refresh } = useDashboard(business);
   const { debtors } = useFollowUpList(business);
   const [isSeeding, setIsSeeding] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSyncData = async () => {
+    setIsSyncing(true);
+    try {
+      await pullServerData(business);
+      refresh();
+    } catch (err) {
+      console.error('Failed to sync demo/server data:', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleSeedData = async () => {
     setIsSeeding(true);
@@ -188,7 +202,10 @@ export default function DashboardScreen({ business, onGoToExport, onGoToFollowUp
                     }}
                     aria-label={`Net result: ${formatNaira(metrics.businessResult)}`}
                   >
-                    {formatNaira(metrics.businessResult)}
+                    <span className="metric-value-desktop">{formatNaira(metrics.businessResult)}</span>
+                    <span className="metric-value-mobile" title={formatNaira(metrics.businessResult)}>
+                      {formatNairaCompact(metrics.businessResult)}
+                    </span>
                   </div>
 
                   <p className="text-xs text-muted" style={{ lineHeight: 1.7 }}>
@@ -245,7 +262,10 @@ export default function DashboardScreen({ business, onGoToExport, onGoToFollowUp
                             </div>
                           </div>
                           <div className="font-bold text-xs" style={{ color: 'var(--color-amber-light)', whiteSpace: 'nowrap' }}>
-                            {formatNaira(debtor.totalOutstanding)}
+                            <span className="metric-value-desktop">{formatNaira(debtor.totalOutstanding)}</span>
+                            <span className="metric-value-mobile" title={formatNaira(debtor.totalOutstanding)}>
+                              {formatNairaCompact(debtor.totalOutstanding)}
+                            </span>
                           </div>
                         </div>
                       ))}
@@ -284,18 +304,32 @@ export default function DashboardScreen({ business, onGoToExport, onGoToFollowUp
               </svg>
             </div>
             <h3 style={{ fontSize: '1.125rem', marginBottom: 8 }}>No Records For This Period</h3>
-            <p className="text-sm text-muted" style={{ marginBottom: 20, maxWidth: 300, margin: '0 auto 20px' }}>
-              Record your daily tally on the Home tab, or populate sample data to preview the full dashboard.
+            <p className="text-sm text-muted" style={{ marginBottom: 20, maxWidth: 320, margin: '0 auto 20px' }}>
+              {business.id
+                ? 'Record your daily tally on the Home tab, or sync from your account to view recorded transactions.'
+                : 'Record your daily tally on the Home tab, or populate sample data to preview the full dashboard.'}
             </p>
-            <button
-              type="button"
-              className="btn btn--secondary"
-              onClick={handleSeedData}
-              disabled={isSeeding}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, margin: '0 auto', padding: '10px 18px' }}
-            >
-              {isSeeding ? 'Populating Sample Records…' : 'Load 60 Days Demo Data'}
-            </button>
+            {business.id ? (
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={handleSyncData}
+                disabled={isSyncing}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, margin: '0 auto', padding: '10px 18px' }}
+              >
+                {isSyncing ? 'Syncing Records…' : 'Sync Latest Records'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={handleSeedData}
+                disabled={isSeeding}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, margin: '0 auto', padding: '10px 18px' }}
+              >
+                {isSeeding ? 'Populating Sample Records…' : 'Load 60 Days Demo Data'}
+              </button>
+            )}
           </div>
         )}
       </div>

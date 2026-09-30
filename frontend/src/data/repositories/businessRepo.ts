@@ -15,12 +15,23 @@ import { apiListBusinesses } from '../../api/client';
 let _cachedBusiness: Business | null = null;
 let _businessLoaded = false;
 
-export function getCachedBusiness(): Business | null {
+export function getCachedBusiness(user?: UserProfile | null): Business | null {
+  if (!user || !_cachedBusiness) return null;
+  const userKey = getUserKey(user);
+  if (userKey === 'anonymous' || String(_cachedBusiness.user_id) !== userKey) {
+    return null;
+  }
   return _cachedBusiness;
 }
 
-export function isBusinessLoaded(): boolean {
-  return _businessLoaded;
+export function isBusinessLoaded(user?: UserProfile | null): boolean {
+  if (!_businessLoaded) return false;
+  if (!user) return false;
+  const userKey = getUserKey(user);
+  if (userKey === 'anonymous' || (_cachedBusiness && String(_cachedBusiness.user_id) !== userKey)) {
+    return false;
+  }
+  return true;
 }
 
 export function setCachedBusiness(biz: Business | null): void {
