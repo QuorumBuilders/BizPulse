@@ -2,10 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useBusiness } from '@/state/useBusiness';
-import { useTheme } from '@/state/useTheme';
 import { startSyncScheduler } from '@/data/sync';
-import SignupScreen from '@/ui/screens/SignupScreen';
-import LoginScreen from '@/ui/screens/LoginScreen';
 import OnboardingScreen from '@/ui/screens/OnboardingScreen';
 import HomeScreen from '@/ui/screens/HomeScreen';
 import DashboardScreen from '@/ui/screens/DashboardScreen';
@@ -18,35 +15,22 @@ import InstallNudge from '@/ui/components/InstallNudge';
 
 export interface AppShellProps {
   initialTab?: Tab;
-  initialAuthView?: 'login' | 'signup';
   initialExport?: boolean;
 }
 
 export default function AppShell({
   initialTab = 'home',
-  initialAuthView = 'login',
   initialExport = false,
 }: AppShellProps = {}) {
-  const { isAuthenticated, isLoading, business, signup, login, logout, saveBusiness } = useBusiness();
-  const { theme, toggle } = useTheme();
+  const { isAuthenticated, isLoading, business, logout, saveBusiness } = useBusiness();
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [isExporting, setIsExporting] = useState(initialExport);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [authView, setAuthView] = useState<'login' | 'signup'>(initialAuthView);
 
   useEffect(() => {
     if (!isAuthenticated) return;
     const stopSync = startSyncScheduler();
     return stopSync;
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    if (isAuthenticated && typeof window !== 'undefined') {
-      const path = window.location.pathname;
-      if (path === '/login' || path === '/signup') {
-        window.history.replaceState(null, '', '/dashboard');
-      }
-    }
   }, [isAuthenticated]);
 
   if (isLoading) {
@@ -62,29 +46,6 @@ export default function AppShell({
           <p className="text-muted text-sm">Loading BizPulse...</p>
         </div>
       </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    if (authView === 'signup') {
-      return (
-        <SignupScreen
-          onSignup={signup}
-          onGoToLogin={() => {
-            setAuthView('login');
-            if (typeof window !== 'undefined') window.history.replaceState(null, '', '/login');
-          }}
-        />
-      );
-    }
-    return (
-      <LoginScreen
-        onLogin={login}
-        onGoToSignup={() => {
-          setAuthView('signup');
-          if (typeof window !== 'undefined') window.history.replaceState(null, '', '/signup');
-        }}
-      />
     );
   }
 

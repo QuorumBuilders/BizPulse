@@ -1,7 +1,12 @@
 'use client';
 
-import AppShell from '@/ui/AppShell';
+import { Suspense } from 'react';
+import LoginScreen from '@/ui/screens/LoginScreen';
 
 export default function LoginPage() {
-  return <AppShell initialAuthView="login" />;
+  return (
+    <Suspense fallback={null}>
+      <LoginScreen />
+    </Suspense>
+  );
 }
