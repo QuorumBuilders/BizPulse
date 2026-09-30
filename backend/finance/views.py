@@ -1,8 +1,10 @@
 from datetime import date
 
+from django.db import IntegrityError
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions
 
+from myapp.exceptions import ConflictError
 from myapp.responses import (
     StandardListCreateAPIView,
     StandardRetrieveUpdateDestroyAPIView,
@@ -155,7 +157,11 @@ class DailyTallyListCreateView(StandardListCreateAPIView):
 
     def perform_create(self, serializer):
         business = self.get_business()
-        serializer.save(business=business)
+        try:
+            
+            serializer.save(business=business)
+        except IntegrityError:
+            raise ConflictError("A daily tally already exists for this date.")
 
 
 class DailyTallyDetailView(StandardRetrieveUpdateDestroyAPIView):

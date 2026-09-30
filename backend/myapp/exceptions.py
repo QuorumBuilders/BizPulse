@@ -1,5 +1,13 @@
 from rest_framework.views import exception_handler
+from rest_framework.exceptions import APIException
 
+
+class ConflictError(APIException):
+    status_code = 409
+    default_code = "CONFLICT"
+    default_detail = "The request conflicts with the current state of the resource."
+
+    
 
 def custom_exception_handler(exc, context):
     response = exception_handler(exc, context)
