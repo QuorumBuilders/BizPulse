@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useBusiness } from '@/state/useBusiness';
+import { hydrateAuth } from '@/state/authStore';
 
 interface RouteGuardProps {
   children: React.ReactNode;
@@ -26,6 +27,19 @@ export default function RouteGuard({ children }: RouteGuardProps) {
   const router = useRouter();
   const { isAuthenticated, isLoading, business } = useBusiness();
 
+  // Boot hydration: run once on mount to exchange stored refresh token for
+  // an access token. Without this, isHydrating stays true forever and the app
+  // is stuck on the loading spinner.
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (!hydratedRef.current) {
+      hydratedRef.current = true;
+      hydrateAuth().catch(() => {
+        // hydrateAuth already calls authLogout() on failure — nothing else to do.
+      });
+    }
+  }, []);
+
   useEffect(() => {
     if (isLoading) return;
 
@@ -38,12 +52,12 @@ export default function RouteGuard({ children }: RouteGuardProps) {
         router.replace('/login');
       }
     } else if (!hasBusiness) {
-      // Authenticated but no business in local IndexedDB -> must complete onboarding
+      // Authenticated but no business found on backend or locally → onboarding
       if (pathname !== '/onboarding' && !pathname.includes('verify')) {
         router.replace('/onboarding');
       }
     } else {
-      // Authenticated with business -> skip auth and onboarding screens
+      // Authenticated with business → skip auth and onboarding screens
       if (pathname === '/login' || pathname === '/signup' || pathname === '/onboarding' || pathname === '/verify-email-pending') {
         router.replace('/dashboard');
       }

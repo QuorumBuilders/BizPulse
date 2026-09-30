@@ -1,7 +1,12 @@
 'use client';
 
-import AppShell from '@/ui/AppShell';
+import { Suspense } from 'react';
+import SignupScreen from '@/ui/screens/SignupScreen';
 
 export default function SignupPage() {
-  return <AppShell initialAuthView="signup" />;
+  return (
+    <Suspense fallback={null}>
+      <SignupScreen />
+    </Suspense>
+  );
 }

@@ -1,45 +1,96 @@
 /**
  * BizPulse — Auth Store
  *
- * Lightweight module-level store for authentication state.
- * No external state library needed — subscribers are React hooks.
+ * Single-flight, concurrency-safe authentication store using useSyncExternalStore.
  *
- * Responsibilities:
- *  - Hold access + refresh tokens in memory
- *  - Persist refresh token to localStorage (access token is kept in memory only)
- *  - Expose a proactive refresh scheduler (re-schedules every time tokens are set)
- *  - Notify React components via a simple subscriber pattern
- *
- * Token lifecycle (from API contract):
- *   access  → expires in 15 min → proactively refresh at 13 min
- *   refresh → expires in 7 days → on failure, clear and redirect to /login
- *   refresh → ROTATED on every use → always store new refresh from response
+ * Lifecycle:
+ * 1. Initial state:
+ *    - if refresh token in localStorage: isHydrating = true, isAuthenticated = false
+ *    - if no refresh token: isHydrating = false, isAuthenticated = false
+ * 2. hydrateAuth():
+ *    - single-flight promise
+ *    - performs silent refresh once if refresh token exists
+ *    - on success: isAuthenticated = true, isHydrating = false
+ *    - on failure: tokens cleared, isAuthenticated = false, isHydrating = false (terminal)
+ * 3. silentRefresh():
+ *    - concurrency-safe single-flight promise
+ *    - on failure: terminal authLogout(), clears storage, sets isAuthenticated = false
  */
 
 import { login, refreshTokens, logout as apiLogout } from '../api/authApi';
 import type { TokenPair } from '../api/authApi';
+import type { UserProfile } from '../domain/types';
+import { useSyncExternalStore } from 'react';
 
 const STORAGE_KEY_REFRESH = 'bp_refresh_token';
+const STORAGE_KEY_USER = 'bp_user';
 
-interface AuthState {
+export interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
+  user: UserProfile | null;
   isAuthenticated: boolean;
-  /** True only during the initial hydration on app boot */
   isHydrating: boolean;
 }
 
-let _state: AuthState = {
-  accessToken: null,
-  refreshToken: null,
-  isAuthenticated: false,
-  isHydrating: true,
-};
+function _parseJwt(token: string): Record<string, unknown> | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+}
+
+function _getInitialState(): AuthState {
+  if (typeof window === 'undefined') {
+    return {
+      accessToken: null,
+      refreshToken: null,
+      user: null,
+      isAuthenticated: false,
+      isHydrating: false,
+    };
+  }
+  try {
+    const refresh = localStorage.getItem(STORAGE_KEY_REFRESH);
+    const userRaw = localStorage.getItem(STORAGE_KEY_USER);
+    const user: UserProfile | null = userRaw ? JSON.parse(userRaw) : null;
+    return {
+      accessToken: null,
+      refreshToken: refresh,
+      user,
+      isAuthenticated: false, // Never true until access token is verified
+      isHydrating: !!refresh,
+    };
+  } catch {
+    return {
+      accessToken: null,
+      refreshToken: null,
+      user: null,
+      isAuthenticated: false,
+      isHydrating: false,
+    };
+  }
+}
+
+let _state: AuthState = _getInitialState();
 
 type Listener = (state: AuthState) => void;
 const _listeners = new Set<Listener>();
 
 let _refreshTimerId: ReturnType<typeof setTimeout> | null = null;
+let _refreshPromise: Promise<string> | null = null;
+let _hydrationPromise: Promise<boolean> | null = null;
 
 function _notify(): void {
   _listeners.forEach((fn) => fn(_state));
@@ -50,29 +101,25 @@ function _setState(patch: Partial<AuthState>): void {
   _notify();
 }
 
-/** Persist refresh token to localStorage. Call when tokens are set. */
-function _persist(refresh: string | null): void {
+function _persist(refresh: string | null, user?: UserProfile | null): void {
   try {
+    if (typeof window === 'undefined') return;
     if (refresh) {
       localStorage.setItem(STORAGE_KEY_REFRESH, refresh);
     } else {
       localStorage.removeItem(STORAGE_KEY_REFRESH);
     }
+
+    if (user) {
+      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+    } else if (user === null) {
+      localStorage.removeItem(STORAGE_KEY_USER);
+    }
   } catch {
-    // localStorage may be unavailable in some environments — silent fail
+    // Ignore storage errors
   }
 }
 
-/** Load refresh token from localStorage (called on app boot). */
-function _loadPersisted(): string | null {
-  try {
-    return localStorage.getItem(STORAGE_KEY_REFRESH);
-  } catch {
-    return null;
-  }
-}
-
-/** Cancel any pending proactive refresh timer. */
 function _clearRefreshTimer(): void {
   if (_refreshTimerId !== null) {
     clearTimeout(_refreshTimerId);
@@ -80,133 +127,179 @@ function _clearRefreshTimer(): void {
   }
 }
 
-/**
- * Schedule a silent token refresh ~13 minutes from now
- * (access token lasts 15 min; we refresh 2 min early for safety).
- */
 function _scheduleRefresh(): void {
   _clearRefreshTimer();
   _refreshTimerId = setTimeout(() => {
-    silentRefresh().catch(() => {
-      // silentRefresh handles its own failure (clears auth on error)
-    });
-  }, 13 * 60 * 1000); // 13 minutes
+    silentRefresh().catch(() => {});
+  }, 13 * 60 * 1000);
 }
 
-/**
- * Hydrate auth state from localStorage on app boot.
- * Call this once in the root layout (or a top-level client component).
- * If a refresh token exists, immediately performs a silent refresh to obtain
- * a fresh access token — so the user is never bounced to /login on reload.
- */
-export async function hydrateAuth(): Promise<void> {
-  const storedRefresh = _loadPersisted();
+export function _setTokens(pair: TokenPair, userProfile?: UserProfile | null): void {
+  let user = userProfile ?? _state.user;
+  if (pair.access) {
+    const claims = _parseJwt(pair.access);
+    const claimUserId = claims?.user_id as number | string | undefined;
+    const claimEmail = (claims?.email as string) || '';
 
-  if (!storedRefresh) {
-    _setState({ isHydrating: false });
-    return;
+    if (!user) {
+      if (claimUserId || claimEmail) {
+        user = {
+          id: claimUserId,
+          email: claimEmail,
+          displayName: claimEmail ? claimEmail.split('@')[0] : 'User',
+        };
+      }
+    } else if (claimUserId && !user.id) {
+      user = { ...user, id: claimUserId };
+    }
   }
 
-  try {
-    const tokens = await refreshTokens(storedRefresh);
-    _setTokens(tokens);
-  } catch {
-    // Stored refresh is expired or invalid — treat as logged out
-    _persist(null);
-  } finally {
-    _setState({ isHydrating: false });
-  }
-}
-
-/**
- * Set tokens after a successful login or refresh.
- * Schedules the next proactive refresh automatically.
- */
-export function _setTokens(pair: TokenPair): void {
-  _persist(pair.refresh);
+  _persist(pair.refresh, user);
   _setState({
     accessToken: pair.access,
     refreshToken: pair.refresh,
+    user: user ?? null,
     isAuthenticated: true,
+    isHydrating: false,
   });
   _scheduleRefresh();
 }
 
 /**
- * Log in with email + password.
- * Stores tokens and schedules proactive refresh.
- * Throws AuthApiError on failure (caller shows the error to the user).
- */
-export async function authLogin(email: string, password: string): Promise<void> {
-  const tokens = await login({ email, password });
-  _setTokens(tokens);
-}
-
-/**
- * Silently refresh the access token using the stored refresh token.
- * Called proactively by the scheduler, and reactively on 401 from the API client.
- * Clears auth and redirects to /login if the refresh token is invalid/expired.
+ * Concurrency-safe silent refresh with single-flight deduplication.
+ * Multiple simultaneous calls share the exact same refresh request.
  */
 export async function silentRefresh(): Promise<string> {
-  const { refreshToken } = _state;
+  const currentRefresh = _state.refreshToken || (typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_REFRESH) : null);
 
-  if (!refreshToken) {
+  if (!currentRefresh) {
     authLogout();
     throw new Error('No refresh token available.');
   }
 
-  try {
-    const tokens = await refreshTokens(refreshToken);
-    _setTokens(tokens);
-    return tokens.access;
-  } catch {
-    // Refresh failed — session is dead
-    authLogout();
-    // Redirect to login (works in both client and server contexts)
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
-    }
-    throw new Error('Session expired. Please log in again.');
+  if (_refreshPromise) {
+    return _refreshPromise;
   }
+
+  _refreshPromise = (async () => {
+    try {
+      const tokens = await refreshTokens(currentRefresh);
+      _setTokens(tokens, _state.user);
+      return tokens.access;
+    } catch (err) {
+      authLogout();
+      throw err;
+    } finally {
+      _refreshPromise = null;
+    }
+  })();
+
+  return _refreshPromise;
 }
 
 /**
- * Clear all auth state and localStorage.
- * Does NOT call the logout API — use `authLogoutWithApi` for that.
+ * Idempotent, single-flight authentication hydration on app boot.
+ *
+ * Call this once from RouteGuard on mount. Multiple simultaneous calls
+ * share the same in-flight promise. Safe to call from React StrictMode
+ * double-mount because the second call joins the existing promise.
  */
+export async function hydrateAuth(): Promise<boolean> {
+  // Already fully authenticated with a live access token — nothing to do.
+  if (_state.isAuthenticated && _state.accessToken) {
+    return true;
+  }
+
+  // No stored refresh token — nothing to hydrate; ensure state is clean.
+  const storedRefresh =
+    typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_REFRESH) : null;
+  if (!storedRefresh) {
+    _setState({ isHydrating: false, isAuthenticated: false, accessToken: null, refreshToken: null });
+    return false;
+  }
+
+  // Deduplicate: if another call is already in-flight, join it.
+  if (_hydrationPromise) {
+    return _hydrationPromise;
+  }
+
+  // Ensure hydrating flag is set before the async work starts so that
+  // consumers reading the store synchronously see isHydrating = true.
+  if (!_state.isHydrating) {
+    _setState({ isHydrating: true });
+  }
+
+  _hydrationPromise = (async () => {
+    try {
+      await silentRefresh();
+      return true;
+    } catch {
+      authLogout();
+      return false;
+    } finally {
+      _setState({ isHydrating: false });
+      _hydrationPromise = null;
+    }
+  })();
+
+  return _hydrationPromise;
+}
+
+/**
+ * Normal or Demo user login.
+ */
+export async function authLogin(email: string, password: string): Promise<UserProfile> {
+  const tokens = await login({ email, password });
+  const isDemo = email.toLowerCase().includes('demo') || email.toLowerCase() === 'addergranzl@example.com';
+  const claims = _parseJwt(tokens.access);
+
+  const user: UserProfile = {
+    id: (claims?.user_id as number | string | undefined) ?? (isDemo ? 'demo-user' : undefined),
+    email,
+    displayName: isDemo ? 'Demo Trader' : email.split('@')[0],
+    isDemo,
+  };
+
+  _setTokens(tokens, user);
+  return user;
+}
+
 export function authLogout(): void {
   _clearRefreshTimer();
-  _persist(null);
+  _refreshPromise = null;
+  _persist(null, null);
   _setState({
     accessToken: null,
     refreshToken: null,
+    user: null,
     isAuthenticated: false,
+    isHydrating: false,
   });
 }
 
-/**
- * Full logout: blacklists the refresh token on the server, then clears local state.
- * Safe to call even if the API call fails.
- */
 export async function authLogoutWithApi(): Promise<void> {
-  const { refreshToken } = _state;
-  if (refreshToken) {
-    await apiLogout(refreshToken); // errors are swallowed inside apiLogout
-  }
+  const currentRefresh = _state.refreshToken;
   authLogout();
+  if (currentRefresh) {
+    try {
+      await apiLogout(currentRefresh);
+    } catch {
+      // API logout errors are non-blocking
+    }
+  }
 }
 
-/** Get the current access token (for use in API requests). */
 export function getAccessToken(): string | null {
   return _state.accessToken;
 }
 
-/** Get a snapshot of the current auth state (for non-reactive reads). */
+export function getUser(): UserProfile | null {
+  return _state.user;
+}
+
 export function getAuthState(): Readonly<AuthState> {
   return _state;
 }
-
-import { useSyncExternalStore } from 'react';
 
 function _subscribe(listener: Listener): () => void {
   _listeners.add(listener);
@@ -217,13 +310,6 @@ function _getSnapshot(): AuthState {
   return _state;
 }
 
-/**
- * React hook — subscribe to auth state changes.
- * Components using this hook re-render automatically when auth state changes.
- *
- * @example
- * const { isAuthenticated, isHydrating } = useAuthStore();
- */
 export function useAuthStore(): AuthState {
   return useSyncExternalStore(_subscribe, _getSnapshot, _getSnapshot);
 }

@@ -42,8 +42,8 @@ export async function findOrCreateCustomer(
     synced: false,
     updated_at: nowISO(),
   };
-  await db.customers.add(customer);
-  await enqueueOutbox('customer', customer.client_id, 'create');
+  await db.customers.put(customer);
+  await enqueueOutbox('customer', customer.client_id, 'create', businessClientId);
   return customer;
 }
 
@@ -71,9 +71,10 @@ export async function updateCustomer(
   clientId: string,
   patch: Partial<Pick<Customer, 'name' | 'phone'>>
 ): Promise<void> {
+  const cust = await db.customers.where('client_id').equals(clientId).first();
   await db.customers
     .where('client_id')
     .equals(clientId)
     .modify({ ...patch, updated_at: nowISO(), synced: false });
-  await enqueueOutbox('customer', clientId, 'update');
+  await enqueueOutbox('customer', clientId, 'update', cust?.business_client_id);
 }

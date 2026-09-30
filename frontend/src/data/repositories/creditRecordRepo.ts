@@ -20,8 +20,8 @@ export async function createCreditRecord(
     synced: false,
     updated_at: nowISO(),
   };
-  await db.credit_records.add(record);
-  await enqueueOutbox('credit_record', record.client_id, 'create');
+  await db.credit_records.put(record);
+  await enqueueOutbox('credit_record', record.client_id, 'create', record.business_client_id);
   return record;
 }
 
@@ -70,9 +70,10 @@ export async function updateCreditRecord(
   clientId: string,
   patch: Partial<Pick<CreditRecord, 'due_date' | 'amount'>>
 ): Promise<void> {
+  const cr = await db.credit_records.where('client_id').equals(clientId).first();
   await db.credit_records
     .where('client_id')
     .equals(clientId)
     .modify({ ...patch, updated_at: nowISO(), synced: false });
-  await enqueueOutbox('credit_record', clientId, 'update');
+  await enqueueOutbox('credit_record', clientId, 'update', cr?.business_client_id);
 }

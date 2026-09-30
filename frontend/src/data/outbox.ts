@@ -16,6 +16,7 @@
 
 import { db } from './db';
 import type { OutboxEntry, OutboxEntity, OutboxOperation } from '../domain/types';
+import { getUser } from '../state/authStore';
 
 /**
  * Add a record to the outbox queue.
@@ -29,17 +30,42 @@ import type { OutboxEntry, OutboxEntity, OutboxOperation } from '../domain/types
 export async function enqueueOutbox(
   entity: OutboxEntity,
   clientId: string,
-  operation: OutboxOperation
+  operation: OutboxOperation,
+  businessClientId?: string,
+  userId?: string | number,
+  businessId?: number
 ): Promise<void> {
+  let resolvedBusinessClientId = businessClientId;
+  let resolvedUserId = userId;
+  let resolvedBusinessId = businessId;
+
+  if (entity === 'business') {
+    resolvedBusinessClientId = clientId;
+  }
+
+  // Lookup business to resolve user_id and business_id if missing
+  if (resolvedBusinessClientId && (!resolvedUserId || !resolvedBusinessId)) {
+    const biz = await db.businesses.where('client_id').equals(resolvedBusinessClientId).first();
+    if (biz) {
+      if (!resolvedUserId && biz.user_id) resolvedUserId = biz.user_id;
+      if (!resolvedBusinessId && biz.id) resolvedBusinessId = biz.id;
+    }
+  }
+
+  // If still missing user_id, resolve from current session
+  if (!resolvedUserId) {
+    const currentUser = getUser();
+    if (currentUser) {
+      resolvedUserId = currentUser.id ? String(currentUser.id) : (currentUser.email ? currentUser.email.toLowerCase().trim() : undefined);
+    }
+  }
+
   const existing = await db.outbox
     .where('[entity+client_id]')
     .equals([entity, clientId])
     .first();
 
   if (existing) {
-    // Upgrade a 'create' to remain 'create' if it hasn't synced yet;
-    // an 'update' over an existing 'update' stays 'update'.
-    // The important thing: don't lose a 'create' by overwriting with 'update'.
     await db.outbox
       .where('[entity+client_id]')
       .equals([entity, clientId])
@@ -47,6 +73,9 @@ export async function enqueueOutbox(
         operation: existing.operation === 'create' ? 'create' : operation,
         attempted_at: null,
         attempts: 0,
+        business_client_id: resolvedBusinessClientId ?? existing.business_client_id,
+        user_id: resolvedUserId ?? existing.user_id,
+        business_id: resolvedBusinessId ?? existing.business_id,
       });
   } else {
     const entry: OutboxEntry = {
@@ -55,6 +84,9 @@ export async function enqueueOutbox(
       operation,
       attempted_at: null,
       attempts: 0,
+      business_client_id: resolvedBusinessClientId,
+      user_id: resolvedUserId,
+      business_id: resolvedBusinessId,
     };
     await db.outbox.add(entry);
   }

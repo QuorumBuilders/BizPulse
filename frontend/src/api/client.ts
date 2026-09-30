@@ -5,7 +5,7 @@
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
-import { getAccessToken, silentRefresh } from '../state/authStore';
+import { getAccessToken, getAuthState, silentRefresh } from '../state/authStore';
 export { getAccessToken } from '../state/authStore';
 
 class ApiError extends Error {
@@ -25,14 +25,29 @@ async function request<T>(
   body?: unknown,
   _isRetry = false,
 ): Promise<T> {
-  const accessToken = getAccessToken();
+  let accessToken = getAccessToken();
+
+  // If no access token but refresh token exists, obtain access token first
+  if (!accessToken) {
+    const authState = getAuthState();
+    if (authState.refreshToken) {
+      try {
+        accessToken = await silentRefresh();
+      } catch {
+        throw new ApiError(401, 'Session expired. Please log in again.');
+      }
+    }
+  }
+
+  // If still no access token, prevent unauthenticated network request on protected endpoints
+  if (!accessToken) {
+    throw new ApiError(401, 'Unauthenticated. Please log in.');
+  }
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'Authorization': `Bearer ${accessToken}`,
   };
-
-  if (accessToken) {
-    headers['Authorization'] = `Bearer ${accessToken}`;
-  }
 
   const response = await fetch(`${BASE_URL}${path}`, {
     method,
@@ -40,12 +55,11 @@ async function request<T>(
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
-  // 401 — access token expired → silent refresh → retry once
+  // 401 — access token expired → attempt single-flight refresh once
   if (response.status === 401 && !_isRetry) {
     try {
       await silentRefresh();
     } catch {
-      // silentRefresh clears auth + redirects to /login on failure
       throw new ApiError(401, 'Session expired. Please log in again.');
     }
     return request<T>(method, path, body, true);

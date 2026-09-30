@@ -26,24 +26,29 @@ import {
 import {
   apiCreateBusiness,
   apiUpdateBusiness,
+  apiListCustomers,
   apiCreateCustomer,
   apiUpdateCustomer,
+  apiListDailyTallies,
   apiCreateDailyTally,
   apiUpdateDailyTally,
+  apiListCreditRecords,
   apiCreateCreditRecord,
   apiUpdateCreditRecord,
+  apiListRepayments,
   apiCreateRepayment,
   ApiError,
 } from '../api/client';
-import { _setTokens as setTokensInStore, authLogout } from '../state/authStore';
-import type { OutboxEntry } from '../domain/types';
+import { _setTokens as setTokensInStore, authLogout, getUser } from '../state/authStore';
+import { generateClientId, nowISO } from './repositories/utils';
+import { storeClientId, getUserKey, getBusiness as getBusinessRepo } from './repositories/businessRepo';
+import type { OutboxEntry, Business } from '../domain/types';
 
 
 const REFRESH_KEY = 'bp_refresh_token';
 
 export function loadStoredTokens(): void {
   // No-op: authStore.hydrateAuth() handles token hydration on boot.
-  // Kept for backwards compat with useBusiness.ts.
 }
 
 export function storeTokens(access: string, refresh: string): void {
@@ -75,10 +80,38 @@ async function pushEntry(entry: OutboxEntry): Promise<void> {
   const { entity, client_id, operation } = entry;
 
   try {
-    // If not a business entity, ensure we have an active synced business on the server
-    const currentBiz = await db.businesses.toCollection().first();
+    // Ownership check: only push entries that belong to the current user and business
+    const currentUser = getUser();
+    if (!currentUser) {
+      // Unauthenticated session — leave queued until user logs in
+      return;
+    }
+    const currentUserKey = getUserKey(currentUser);
+
+    // 1. Verify User Identity
+    if (entry.user_id && String(entry.user_id) !== currentUserKey) {
+      // Entry belongs to a different user — do NOT push, leave queued
+      return;
+    }
+
+    // 2. Verify Business Identity & Client ID
+    const currentBiz = await getBusinessRepo(currentUser);
+    if (!currentBiz) {
+      // Active business not loaded yet — leave queued
+      return;
+    }
+
+    if (entry.business_client_id && entry.business_client_id !== currentBiz.client_id) {
+      // Entry belongs to a different business client_id — do NOT push, leave queued
+      return;
+    }
+
+    if (entry.business_id && currentBiz.id && entry.business_id !== currentBiz.id) {
+      // Entry belongs to a different server business ID — do NOT push, leave queued
+      return;
+    }
+
     if (entity !== 'business' && !currentBiz?.id) {
-      // Business hasn't synced yet — re-queue for next cycle
       if (entry.id !== undefined) {
         await recordAttempt(entry.id, false);
       }
@@ -98,8 +131,9 @@ async function pushEntry(entry: OutboxEntry): Promise<void> {
             id: res.id,
             synced: true,
           });
+          storeClientId(currentUserKey, res.id, client_id);
         } else {
-          if (!biz.id) return; // can't update without server id yet
+          if (!biz.id) return;
           await apiUpdateBusiness(biz.id, {
             name: biz.name,
           });
@@ -111,6 +145,7 @@ async function pushEntry(entry: OutboxEntry): Promise<void> {
       case 'customer': {
         const cust = await db.customers.where('client_id').equals(client_id).first();
         if (!cust || !currentBiz?.id) return;
+        // Use currentBiz from ownership-checked lookup
         if (operation === 'create') {
           const res = await apiCreateCustomer(currentBiz.id, {
             name: cust.name,
@@ -245,6 +280,225 @@ async function pushEntry(entry: OutboxEntry): Promise<void> {
   }
 }
 
+/**
+ * Synchronize server data into IndexedDB for the given business.
+ * Upserts records, preserves server IDs, marks them synced,
+ * and preserves local unsynced edits.
+ */
+export async function pullServerData(business: Business): Promise<void> {
+  if (!business.id) return;
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+
+  try {
+    // 1. Customers
+    try {
+      const serverCustomers = await apiListCustomers(business.id);
+      if (serverCustomers && serverCustomers.length > 0) {
+        for (const sc of serverCustomers) {
+          let local = await db.customers
+            .where('business_client_id')
+            .equals(business.client_id)
+            .filter((c) => c.id === sc.id)
+            .first();
+
+          if (!local) {
+            const sameNameList = await db.customers
+              .where('business_client_id')
+              .equals(business.client_id)
+              .toArray();
+            local = sameNameList.find(
+              (c) => c.name.toLowerCase().trim() === sc.name.toLowerCase().trim()
+            );
+          }
+
+          if (local) {
+            if (!local.synced) {
+              if (local.id === undefined) {
+                await db.customers.where('client_id').equals(local.client_id).modify({ id: sc.id });
+              }
+            } else {
+              await db.customers.where('client_id').equals(local.client_id).modify({
+                id: sc.id,
+                name: sc.name,
+                phone: sc.phone || '',
+                business_client_id: business.client_id,
+                synced: true,
+              });
+            }
+          } else {
+            await db.customers.put({
+              client_id: generateClientId(),
+              id: sc.id,
+              business_client_id: business.client_id,
+              name: sc.name,
+              phone: sc.phone || '',
+              synced: true,
+              updated_at: nowISO(),
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[BizPulse Sync] Customers pull skipped:', err);
+    }
+
+    // 2. Daily Tallies
+    try {
+      const serverTallies = await apiListDailyTallies(business.id);
+      if (serverTallies && serverTallies.length > 0) {
+        for (const st of serverTallies) {
+          let local = await db.daily_tallies
+            .where('[business_client_id+date]')
+            .equals([business.client_id, st.date])
+            .first();
+
+          if (!local) {
+            local = await db.daily_tallies
+              .where('business_client_id')
+              .equals(business.client_id)
+              .filter((t) => t.id === st.id)
+              .first();
+          }
+
+          if (local) {
+            if (!local.synced) {
+              if (local.id === undefined) {
+                await db.daily_tallies.where('client_id').equals(local.client_id).modify({ id: st.id });
+              }
+            } else {
+              await db.daily_tallies.where('client_id').equals(local.client_id).modify({
+                id: st.id,
+                business_client_id: business.client_id,
+                date: st.date,
+                cash_sales: Number(st.cash_sales) || 0,
+                expenses: Number(st.expenses) || 0,
+                note: st.note || '',
+                synced: true,
+              });
+            }
+          } else {
+            await db.daily_tallies.put({
+              client_id: generateClientId(),
+              id: st.id,
+              business_client_id: business.client_id,
+              date: st.date,
+              cash_sales: Number(st.cash_sales) || 0,
+              expenses: Number(st.expenses) || 0,
+              note: st.note || '',
+              synced: true,
+              updated_at: nowISO(),
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[BizPulse Sync] Daily tallies pull skipped:', err);
+    }
+
+    // 3. Credit Records
+    try {
+      const serverCredits = await apiListCreditRecords(business.id);
+      if (serverCredits && serverCredits.length > 0) {
+        for (const scr of serverCredits) {
+          const localCust = await db.customers
+            .where('business_client_id')
+            .equals(business.client_id)
+            .filter((c) => c.id === scr.customer)
+            .first();
+          const customerClientId = localCust ? localCust.client_id : '';
+
+          let local = await db.credit_records
+            .where('business_client_id')
+            .equals(business.client_id)
+            .filter((cr) => cr.id === scr.id)
+            .first();
+
+          if (!local && customerClientId) {
+            const candidates = await db.credit_records
+              .where('business_client_id')
+              .equals(business.client_id)
+              .toArray();
+            local = candidates.find(
+              (c) =>
+                c.customer_client_id === customerClientId &&
+                c.issued_date === scr.issued_date &&
+                Math.abs(c.amount - Number(scr.amount)) < 0.01
+            );
+          }
+
+          if (local) {
+            if (!local.synced) {
+              if (local.id === undefined) {
+                await db.credit_records.where('client_id').equals(local.client_id).modify({ id: scr.id });
+              }
+            } else {
+              await db.credit_records.where('client_id').equals(local.client_id).modify({
+                id: scr.id,
+                business_client_id: business.client_id,
+                customer_client_id: customerClientId || local.customer_client_id,
+                amount: Number(scr.amount) || 0,
+                issued_date: scr.issued_date,
+                due_date: scr.due_date ?? null,
+                synced: true,
+              });
+            }
+          } else {
+            await db.credit_records.put({
+              client_id: generateClientId(),
+              id: scr.id,
+              business_client_id: business.client_id,
+              customer_client_id: customerClientId,
+              amount: Number(scr.amount) || 0,
+              issued_date: scr.issued_date,
+              due_date: scr.due_date ?? null,
+              synced: true,
+              updated_at: nowISO(),
+            });
+          }
+
+          // Pull repayments for this credit record
+          try {
+            const serverReps = await apiListRepayments(business.id, scr.id);
+            if (serverReps && serverReps.length > 0) {
+              const localCredit = await db.credit_records
+                .where('business_client_id')
+                .equals(business.client_id)
+                .filter((c) => c.id === scr.id)
+                .first();
+              if (localCredit) {
+                for (const srep of serverReps) {
+                  const localRep = await db.repayments
+                    .where('credit_record_client_id')
+                    .equals(localCredit.client_id)
+                    .filter((r) => r.id === srep.id)
+                    .first();
+                  if (!localRep) {
+                    await db.repayments.put({
+                      client_id: generateClientId(),
+                      id: srep.id,
+                      credit_record_client_id: localCredit.client_id,
+                      amount: Number(srep.amount) || 0,
+                      paid_date: srep.paid_date,
+                      synced: true,
+                      updated_at: nowISO(),
+                    });
+                  }
+                }
+              }
+            }
+          } catch {
+            // Repayment pull failure is non-blocking
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[BizPulse Sync] Credit records pull skipped:', err);
+    }
+  } catch (err) {
+    console.warn('[BizPulse Sync] Pull sync error:', err);
+  }
+}
+
 let syncInProgress = false;
 
 export async function runSync(): Promise<void> {
@@ -266,6 +520,12 @@ export async function runSync(): Promise<void> {
         // Individual entry failure doesn't stop the rest
       }
     }
+    // Scope pull to the current user's business
+    const currentUser = getUser();
+    const currentBiz = await getBusinessRepo(currentUser);
+    if (currentBiz?.id) {
+      await pullServerData(currentBiz);
+    }
     emitStatus('success');
   } catch {
     emitStatus('error');
@@ -275,25 +535,38 @@ export async function runSync(): Promise<void> {
 }
 
 let syncInterval: ReturnType<typeof setInterval> | null = null;
+let activeListenersCount = 0;
+let onlineHandler: (() => void) | null = null;
 
 export function startSyncScheduler(): () => void {
   if (typeof window === 'undefined') return () => {};
 
-  runSync();
-
-  const onOnline = () => {
-    console.log('[BizPulse Sync] Device back online — syncing...');
+  activeListenersCount++;
+  if (activeListenersCount === 1) {
     runSync();
-  };
-  window.addEventListener('online', onOnline);
 
-  syncInterval = setInterval(() => {
-    runSync();
-  }, 30_000);
+    onlineHandler = () => {
+      runSync();
+    };
+    window.addEventListener('online', onlineHandler);
+
+    if (syncInterval) clearInterval(syncInterval);
+    syncInterval = setInterval(() => {
+      runSync();
+    }, 30_000);
+  }
 
   return () => {
-    window.removeEventListener('online', onOnline);
-    if (syncInterval) clearInterval(syncInterval);
-    syncInterval = null;
+    activeListenersCount = Math.max(0, activeListenersCount - 1);
+    if (activeListenersCount === 0) {
+      if (onlineHandler) {
+        window.removeEventListener('online', onlineHandler);
+        onlineHandler = null;
+      }
+      if (syncInterval) {
+        clearInterval(syncInterval);
+        syncInterval = null;
+      }
+    }
   };
 }

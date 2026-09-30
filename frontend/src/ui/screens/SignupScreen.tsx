@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { AuthApiError, resendVerificationEmail } from '@/api/authApi';
+import { useBusiness } from '@/state/useBusiness';
 import { formatMoneyInput, parseMoneyInput } from '@/domain/derivations';
 import VerifyEmailPendingScreen from '@/ui/screens/VerifyEmailPendingScreen';
 
@@ -16,8 +18,8 @@ interface SignupPayload {
 }
 
 interface Props {
-  onSignup: (payload: SignupPayload) => Promise<void>;
-  onGoToLogin: () => void;
+  onSignup?: (payload: SignupPayload) => Promise<unknown>;
+  onGoToLogin?: () => void;
 }
 
 const BUSINESS_TYPES = [
@@ -34,6 +36,10 @@ const BUSINESS_TYPES = [
 ];
 
 export default function SignupScreen({ onSignup, onGoToLogin }: Props) {
+  const router = useRouter();
+  const { signup: defaultSignup } = useBusiness();
+  const goToLogin = onGoToLogin || (() => router.push('/login'));
+
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     displayName: '',
@@ -88,7 +94,8 @@ export default function SignupScreen({ onSignup, onGoToLogin }: Props) {
     setIsLoading(true);
     setApiError('');
     try {
-      await onSignup({
+      const signupFn = onSignup || defaultSignup;
+      await signupFn({
         displayName: form.displayName.trim(),
         email: form.email.trim().toLowerCase(),
         password: form.password,
@@ -123,7 +130,7 @@ export default function SignupScreen({ onSignup, onGoToLogin }: Props) {
     } finally {
       setIsLoading(false);
     }
-  }, [form, onSignup, apiError]);
+  }, [form, onSignup, defaultSignup, apiError]);
 
   const handleResendVerification = async () => {
     if (!form.email || isResending) return;
@@ -142,7 +149,7 @@ export default function SignupScreen({ onSignup, onGoToLogin }: Props) {
   };
 
   if (isRegistered) {
-    return <VerifyEmailPendingScreen email={form.email} onGoToLogin={onGoToLogin} />;
+    return <VerifyEmailPendingScreen email={form.email} onGoToLogin={goToLogin} />;
   }
 
   return (
@@ -330,7 +337,7 @@ export default function SignupScreen({ onSignup, onGoToLogin }: Props) {
       <div className="text-center mt-6">
         <p className="text-sm text-muted">
           Already have an account?{' '}
-          <button id="go-to-login-btn" type="button" className="btn btn--ghost" style={{ padding: '4px 8px', display: 'inline-flex' }} onClick={onGoToLogin}>
+          <button id="go-to-login-btn" type="button" className="btn btn--ghost" style={{ padding: '4px 8px', display: 'inline-flex' }} onClick={goToLogin}>
             Sign in
           </button>
         </p>

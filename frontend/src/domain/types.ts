@@ -36,11 +36,19 @@ export interface Business {
   purge_at: string | null;
   synced: boolean;
   updated_at: string;
+  user_id?: string | number;
 }
 
 // ---------------------------------------------------------------------------
 // User (stored locally to drive auth state; never a source of truth)
 // ---------------------------------------------------------------------------
+
+export interface UserProfile {
+  id?: number | string;
+  email: string;
+  displayName?: string;
+  isDemo?: boolean;
+}
 
 export interface LocalUser {
   /** Server-assigned id */
@@ -162,6 +170,9 @@ export interface OutboxEntry {
   operation: OutboxOperation;
   attempted_at: string | null;
   attempts: number;
+  business_client_id?: string;
+  user_id?: string | number;
+  business_id?: number;
 }
 
 // ---------------------------------------------------------------------------

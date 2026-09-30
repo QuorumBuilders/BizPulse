@@ -1,16 +1,26 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { AuthApiError, resendVerificationEmail } from '@/api/authApi';
+import { useBusiness } from '@/state/useBusiness';
+import { useAuthStore } from '@/state/authStore';
+import { getBusiness } from '@/data/repositories/businessRepo';
 
 interface Props {
-  onLogin: (email: string, password: string) => Promise<void>;
-  onGoToSignup: () => void;
+  onLogin?: (email: string, password: string) => Promise<unknown>;
+  onGoToSignup?: () => void;
   onGoToForgotPassword?: () => void;
 }
 
 export default function LoginScreen({ onLogin, onGoToSignup, onGoToForgotPassword }: Props) {
+  const router = useRouter();
+  const { login: defaultLogin } = useBusiness();
+  const auth = useAuthStore();
+  const demoTriggeredRef = useRef(false);
+  const isDemoLoadingRef = useRef(false);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
@@ -22,7 +32,7 @@ export default function LoginScreen({ onLogin, onGoToSignup, onGoToForgotPasswor
   const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [demoError, setDemoError] = useState('');
 
-  const validate = () => {
+  const validate = useCallback(() => {
     const e: typeof errors = {};
     if (!email.trim()) {
       e.email = 'Email address is required';
@@ -34,7 +44,7 @@ export default function LoginScreen({ onLogin, onGoToSignup, onGoToForgotPasswor
     }
     setErrors(e);
     return Object.keys(e).length === 0;
-  };
+  }, [email, password]);
 
   const handleLogin = useCallback(async () => {
     if (!validate()) return;
@@ -43,7 +53,14 @@ export default function LoginScreen({ onLogin, onGoToSignup, onGoToForgotPasswor
     setIsUnverified(false);
     setResendStatus(null);
     try {
-      await onLogin(email.trim().toLowerCase(), password);
+      const loginFn = onLogin || defaultLogin;
+      const res = await loginFn(email.trim().toLowerCase(), password) as { user?: any; business?: unknown } | undefined;
+      const biz = res?.business ?? (await getBusiness(res?.user));
+      if (biz) {
+        router.replace('/dashboard');
+      } else {
+        router.replace('/onboarding');
+      }
     } catch (err: unknown) {
       if (err instanceof AuthApiError) {
         const detail = typeof err.details?.detail === 'string' ? err.details.detail : '';
@@ -63,30 +80,37 @@ export default function LoginScreen({ onLogin, onGoToSignup, onGoToForgotPasswor
       }
       setIsLoading(false);
     }
-  }, [email, password, onLogin]);
+  }, [validate, email, password, onLogin, defaultLogin, router]);
 
-  /** Demo login — uses the exact same login() call as real users. */
   const handleDemoLogin = useCallback(async () => {
+    if (isDemoLoadingRef.current) return;
+    isDemoLoadingRef.current = true;
     setIsDemoLoading(true);
     setDemoError('');
     try {
-      await onLogin('addergranzl@example.com', 'DemoPassword123!');
+      const loginFn = onLogin || defaultLogin;
+      await loginFn('addergranzl@example.com', 'DemoPassword123!');
+      router.replace('/dashboard');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Demo login failed. Please try again.';
       setDemoError(msg);
       setIsDemoLoading(false);
+      isDemoLoadingRef.current = false;
     }
-  }, [onLogin]);
+  }, [onLogin, defaultLogin, router]);
 
-  // Auto-fill/auto-login if navigated from "View live demo" on landing page
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('demo') === '1') {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('demo') === '1' && !demoTriggeredRef.current && !auth.isHydrating) {
+      demoTriggeredRef.current = true;
+      if (auth.isAuthenticated) {
+        router.replace('/dashboard');
+      } else {
         handleDemoLogin();
       }
     }
-  }, [handleDemoLogin]);
+  }, [auth.isHydrating, auth.isAuthenticated, handleDemoLogin, router]);
 
   const handleResend = async () => {
     if (!email.trim() || isResending) return;
@@ -267,7 +291,7 @@ export default function LoginScreen({ onLogin, onGoToSignup, onGoToForgotPasswor
             type="button"
             className="btn btn--ghost"
             style={{ padding: '4px 8px', display: 'inline-flex' }}
-            onClick={onGoToSignup}
+            onClick={onGoToSignup || (() => router.push('/signup'))}
           >
             Create one free
           </button>
