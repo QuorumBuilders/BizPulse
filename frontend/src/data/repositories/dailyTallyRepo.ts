@@ -67,7 +67,7 @@ export async function upsertTallyForDate(
       .equals(existing.client_id)
       .modify({ ...data, updated_at: now, synced: false });
     const updated = { ...existing, ...data, updated_at: now, synced: false };
-    await enqueueOutbox('daily_tally', existing.client_id, 'update');
+    await enqueueOutbox('daily_tally', existing.client_id, 'update', businessClientId);
     return updated;
   } else {
     const tally: DailyTally = {
@@ -78,8 +78,8 @@ export async function upsertTallyForDate(
       synced: false,
       updated_at: now,
     };
-    await db.daily_tallies.add(tally);
-    await enqueueOutbox('daily_tally', tally.client_id, 'create');
+    await db.daily_tallies.put(tally);
+    await enqueueOutbox('daily_tally', tally.client_id, 'create', businessClientId);
     return tally;
   }
 }

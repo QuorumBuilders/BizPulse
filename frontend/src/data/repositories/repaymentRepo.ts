@@ -20,8 +20,9 @@ export async function createRepayment(
     synced: false,
     updated_at: nowISO(),
   };
-  await db.repayments.add(repayment);
-  await enqueueOutbox('repayment', repayment.client_id, 'create');
+  const cr = await db.credit_records.where('client_id').equals(data.credit_record_client_id).first();
+  await db.repayments.put(repayment);
+  await enqueueOutbox('repayment', repayment.client_id, 'create', cr?.business_client_id);
   return repayment;
 }
 
