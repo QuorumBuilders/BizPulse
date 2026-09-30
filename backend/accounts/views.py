@@ -45,6 +45,7 @@ class BusinessListCreateView(StandardListCreateAPIView):
 class BusinessDetailView(StandardRetrieveUpdateDestroyAPIView):
     serializer_class = BusinessSerializer
     permission_classes = [permissions.IsAuthenticated]
+    lookup_url_kwarg = "business_id"
 
     def get_queryset(self):
         Business.purge_expired_for_user(self.request.user)
@@ -68,6 +69,7 @@ class BusinessDetailView(StandardRetrieveUpdateDestroyAPIView):
 class BusinessRestoreView(generics.GenericAPIView):
     serializer_class = BusinessSerializer
     permission_classes = [permissions.IsAuthenticated]
+    lookup_url_kwarg = "business_id"
 
     def post(self, request, *args, **kwargs):
         Business.purge_expired_for_user(request.user)
