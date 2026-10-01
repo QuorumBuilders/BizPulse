@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '@/state/useTheme';
 
 const FEATURES = [
@@ -45,6 +45,11 @@ const FEATURES = [
 
 export default function LandingPage() {
   const { theme, toggle } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Intersection Observer for feature card scroll reveals
   const featureSectionRef = useRef<HTMLElement>(null);
@@ -127,8 +132,9 @@ export default function LandingPage() {
             id="landing-theme-toggle"
             type="button"
             onClick={toggle}
-            aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-            title={theme === 'light' ? 'Dark mode' : 'Light mode'}
+            suppressHydrationWarning
+            aria-label={!mounted ? 'Toggle theme' : theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+            title={!mounted ? 'Toggle theme' : theme === 'light' ? 'Dark mode' : 'Light mode'}
             style={{
               background: 'var(--color-surface-2)',
               border: '1px solid var(--color-border)',
@@ -143,7 +149,13 @@ export default function LandingPage() {
               transition: 'background 0.2s',
             }}
           >
-            {theme === 'light' ? (
+            {/* Render a neutral icon server-side and before hydration to prevent
+                hydration mismatch. Theme-aware icon is shown only after mount. */}
+            {!mounted ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="5" />
+              </svg>
+            ) : theme === 'light' ? (
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
               </svg>
