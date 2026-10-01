@@ -14,6 +14,7 @@
  * be up at that moment."
  */
 
+import Dexie from 'dexie';
 import { db } from './db';
 import type { OutboxEntry, OutboxEntity, OutboxOperation } from '../domain/types';
 import { getUser } from '../state/authStore';
@@ -43,16 +44,24 @@ export async function enqueueOutbox(
     resolvedBusinessClientId = clientId;
   }
 
-  // Lookup business to resolve user_id and business_id if missing
-  if (resolvedBusinessClientId && (!resolvedUserId || !resolvedBusinessId)) {
-    const biz = await db.businesses.where('client_id').equals(resolvedBusinessClientId).first();
-    if (biz) {
-      if (!resolvedUserId && biz.user_id) resolvedUserId = biz.user_id;
-      if (!resolvedBusinessId && biz.id) resolvedBusinessId = biz.id;
+  // Only look up the business record when we are NOT already inside a Dexie
+  // transaction. If we ARE inside one, db.businesses is not in scope and
+  // Dexie will throw NotFoundError. The caller already passes businessClientId
+  // (and optionally businessId), so the lookup is only needed as a fallback.
+  const insideTransaction = !!Dexie.currentTransaction;
+  if (!insideTransaction && resolvedBusinessClientId && (!resolvedUserId || !resolvedBusinessId)) {
+    try {
+      const biz = await db.businesses.where('client_id').equals(resolvedBusinessClientId).first();
+      if (biz) {
+        if (!resolvedUserId && biz.user_id) resolvedUserId = biz.user_id;
+        if (!resolvedBusinessId && biz.id) resolvedBusinessId = biz.id;
+      }
+    } catch {
+      // Non-fatal — we'll still enqueue with the data we have
     }
   }
 
-  // If still missing user_id, resolve from current session
+  // If still missing user_id, resolve from current session (no DB access needed)
   if (!resolvedUserId) {
     const currentUser = getUser();
     if (currentUser) {
